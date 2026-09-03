@@ -17,7 +17,7 @@ describe("pyenv.config", function()
     local c = config.get()
     assert.is_false(c.lsp.enabled)
     -- untouched sibling keys survive the merge
-    assert.same({ "pyright", "basedpyright", "pylsp", "ruff" }, c.lsp.servers)
+    assert.same({ "pyright", "basedpyright", "pylsp" }, c.lsp.servers)
     assert.is_true(c.auto_activate)
   end)
 
@@ -30,7 +30,7 @@ describe("pyenv.config", function()
   it("does not mutate the defaults table", function()
     config.setup({ lsp = { servers = { "pyright" } } })
     config.reset()
-    assert.same({ "pyright", "basedpyright", "pylsp", "ruff" }, config.get().lsp.servers)
+    assert.same({ "pyright", "basedpyright", "pylsp" }, config.get().lsp.servers)
   end)
 
   it("rejects an unknown top-level option", function()

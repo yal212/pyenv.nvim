@@ -38,7 +38,7 @@ M.defaults = {
   resolution_order = resolve.DEFAULT_ORDER,
   lsp = {
     enabled = true,
-    servers = { "pyright", "basedpyright", "pylsp", "ruff" },
+    servers = { "pyright", "basedpyright", "pylsp" },
   },
   dap = { enabled = true },
   terminal = {
