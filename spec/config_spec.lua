@@ -1,0 +1,72 @@
+local config = require("pyenv.config")
+
+describe("pyenv.config", function()
+  after_each(function()
+    config.reset()
+  end)
+
+  it("exposes sane defaults before setup is ever called", function()
+    local c = config.get()
+    assert.is_true(c.auto_activate)
+    assert.is_true(c.lsp.enabled)
+    assert.same(config.defaults.resolution_order, c.resolution_order)
+  end)
+
+  it("deep-merges user options over defaults", function()
+    config.setup({ lsp = { enabled = false } })
+    local c = config.get()
+    assert.is_false(c.lsp.enabled)
+    -- untouched sibling keys survive the merge
+    assert.same({ "pyright", "basedpyright", "pylsp", "ruff" }, c.lsp.servers)
+    assert.is_true(c.auto_activate)
+  end)
+
+  it("replaces list-like options wholesale rather than merging them", function()
+    -- Deep-merging arrays would make it impossible to shorten a list.
+    config.setup({ lsp = { servers = { "pyright" } } })
+    assert.same({ "pyright" }, config.get().lsp.servers)
+  end)
+
+  it("does not mutate the defaults table", function()
+    config.setup({ lsp = { servers = { "pyright" } } })
+    config.reset()
+    assert.same({ "pyright", "basedpyright", "pylsp", "ruff" }, config.get().lsp.servers)
+  end)
+
+  it("rejects an unknown top-level option", function()
+    assert.has_error(function()
+      config.setup({ nonsense = true })
+    end, "pyenv.nvim: unknown option 'nonsense'")
+  end)
+
+  it("rejects an unknown nested option", function()
+    assert.has_error(function()
+      config.setup({ lsp = { nonsense = true } })
+    end, "pyenv.nvim: unknown option 'lsp.nonsense'")
+  end)
+
+  it("rejects an option of the wrong type", function()
+    assert.has_error(function()
+      config.setup({ auto_activate = "yes" })
+    end, "pyenv.nvim: option 'auto_activate' expects boolean, got string")
+  end)
+
+  it("rejects an unknown resolution step", function()
+    assert.has_error(function()
+      config.setup({ resolution_order = { "local", "bogus" } })
+    end, "pyenv.nvim: unknown resolution step 'bogus'")
+  end)
+
+  it("allows nil for options that default to nil", function()
+    assert.has_no.errors(function()
+      config.setup({ root = "/opt/pyenv" })
+    end)
+    assert.equals("/opt/pyenv", config.get().root)
+  end)
+
+  it("accepts being called with no arguments", function()
+    assert.has_no.errors(function()
+      config.setup()
+    end)
+  end)
+end)
