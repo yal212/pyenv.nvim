@@ -51,33 +51,105 @@ local function nest(keys, value)
   return root
 end
 
+---How long to keep waiting for a stopped server to actually exit.
+M.STOP_TIMEOUT_MS = 5000
+
+---@class pyenv.RestartDeps
+---@field get_clients    fun(filter: table): table[]
+---@field is_enabled     fun(name: string): boolean
+---@field enable         fun(name: string, enable: boolean?)
+---@field exec_autocmds  fun(event: string, opts: table)
+---@field defer          fun(fn: function, ms: integer)
+---@field start          fun(config: table, opts: table)
+---@field buf_is_valid   fun(buf: integer): boolean
+
+---@return pyenv.RestartDeps
+local function real_deps()
+  return {
+    get_clients = vim.lsp.get_clients,
+    is_enabled = vim.lsp.is_enabled,
+    enable = vim.lsp.enable,
+    exec_autocmds = vim.api.nvim_exec_autocmds,
+    defer = vim.defer_fn,
+    start = vim.lsp.start,
+    buf_is_valid = function(buf)
+      return vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf)
+    end,
+  }
+end
+
+---Poll until no client named `name` is running, then continue. Polling rather
+---than blocking with `vim.wait`, so the editor stays responsive while a server
+---shuts down.
+---@param name string
+---@param deps pyenv.RestartDeps
+---@param callback fun()
+local function when_stopped(name, deps, callback, remaining)
+  remaining = remaining or M.STOP_TIMEOUT_MS
+  if #deps.get_clients({ name = name }) == 0 or remaining <= 0 then
+    return callback()
+  end
+  deps.defer(function()
+    when_stopped(name, deps, callback, remaining - 100)
+  end, 100)
+end
+
 ---Restart a server.
 ---
 ---Neovim has no `vim.lsp.restart()`. Toggling `vim.lsp.enable` is the supported
----route and correctly re-attaches current and future buffers, but it only
----governs configs that were enabled that way; anything started through
----`vim.lsp.start()` directly needs stopping and restarting per buffer.
+---route, but two details are easy to get wrong and both leave the buffer with
+---no language server at all:
+---
+---  * Disabling stops clients asynchronously, so re-enabling in the same tick
+---    races the shutdown.
+---  * `vim.lsp.enable(name, true)` only auto-activates on *future* buffer
+---    events. It does not retroactively attach to a buffer that is already
+---    open, which is exactly the buffer the user is looking at.
+---
+---So: remember the attached buffers, wait for the old clients to exit, re-enable,
+---then re-fire FileType to trigger attachment. Anything started through
+---`vim.lsp.start()` directly is not governed by `vim.lsp.enable` and is instead
+---stopped and started again per buffer.
 ---@param name string
-local function default_restart(name)
-  local ok, enabled = pcall(vim.lsp.is_enabled, name)
-  if ok and enabled then
-    vim.lsp.enable(name, false)
-    vim.lsp.enable(name, true)
+---@param deps pyenv.RestartDeps?
+function M.restart(name, deps)
+  deps = deps or real_deps()
+
+  local buffers = {}
+  local configs = {}
+  for _, client in ipairs(deps.get_clients({ name = name })) do
+    configs[#configs + 1] = client.config
+    for buf in pairs(client.attached_buffers or {}) do
+      buffers[#buffers + 1] = buf
+    end
+  end
+
+  local ok, enabled = pcall(deps.is_enabled, name)
+  if not (ok and enabled) then
+    for _, client in ipairs(deps.get_clients({ name = name })) do
+      client:stop()
+    end
+    when_stopped(name, deps, function()
+      for _, config in ipairs(configs) do
+        for _, buf in ipairs(buffers) do
+          if deps.buf_is_valid(buf) then
+            deps.start(config, { bufnr = buf })
+          end
+        end
+      end
+    end)
     return
   end
 
-  for _, client in ipairs(vim.lsp.get_clients({ name = name })) do
-    local buffers = vim.tbl_keys(client.attached_buffers or {})
-    local config = client.config
-    client:stop()
-    vim.defer_fn(function()
-      for _, buf in ipairs(buffers) do
-        if vim.api.nvim_buf_is_valid(buf) then
-          vim.lsp.start(config, { bufnr = buf })
-        end
+  deps.enable(name, false)
+  when_stopped(name, deps, function()
+    deps.enable(name, true)
+    for _, buf in ipairs(buffers) do
+      if deps.buf_is_valid(buf) then
+        deps.exec_autocmds("FileType", { buffer = buf, modeline = false })
       end
-    end, 100)
-  end
+    end
+  end)
 end
 
 ---@param name string
@@ -128,7 +200,7 @@ function M.apply(resolution, opts, deps)
 
   deps = deps or {}
   local get_clients = deps.get_clients or vim.lsp.get_clients
-  local restart = deps.restart or default_restart
+  local restart = deps.restart or M.restart
   local cmd_env = server_env(resolution)
 
   for _, name in ipairs(opts.servers or {}) do

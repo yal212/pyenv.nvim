@@ -170,3 +170,105 @@ describe("pyenv.integrations.lsp", function()
     end)
   end)
 end)
+
+describe("pyenv.integrations.lsp restart", function()
+  ---A controllable stand-in for the Neovim LSP surface. `defer` queues
+  ---callbacks instead of using real timers, so the test drives the clock.
+  local function harness(opts)
+    local h = { log = {}, clients = opts.clients or {}, enabled = opts.enabled, queue = {} }
+
+    h.deps = {
+      get_clients = function()
+        return h.clients
+      end,
+      is_enabled = function()
+        return h.enabled
+      end,
+      enable = function(name, on)
+        table.insert(h.log, ("enable %s %s"):format(name, tostring(on)))
+      end,
+      exec_autocmds = function(event, o)
+        table.insert(h.log, ("%s buf=%d"):format(event, o.buffer))
+      end,
+      defer = function(fn)
+        table.insert(h.queue, fn)
+      end,
+      start = function(_, o)
+        table.insert(h.log, ("start buf=%d"):format(o.bufnr))
+      end,
+      buf_is_valid = function()
+        return true
+      end,
+    }
+
+    ---Run every queued callback once.
+    function h.tick()
+      local due = h.queue
+      h.queue = {}
+      for _, fn in ipairs(due) do
+        fn()
+      end
+    end
+
+    return h
+  end
+
+  local function client(name, buf)
+    return {
+      name = name,
+      config = { name = name },
+      attached_buffers = { [buf] = true },
+      stop = function(self)
+        self.stopped = true
+      end,
+    }
+  end
+
+  it("does not re-enable until the old client has actually exited", function()
+    -- Disabling stops clients asynchronously. Re-enabling in the same tick
+    -- races the shutdown and leaves the buffer with no server at all.
+    local h = harness({ enabled = true, clients = { client("pyright", 7) } })
+    lsp.restart("pyright", h.deps)
+    assert.same({ "enable pyright false" }, h.log)
+
+    h.tick() -- still running
+    assert.same({ "enable pyright false" }, h.log)
+
+    h.clients = {} -- the server has now exited
+    h.tick()
+    assert.same({ "enable pyright false", "enable pyright true", "FileType buf=7" }, h.log)
+  end)
+
+  it("re-fires FileType so an already-open buffer gets the server back", function()
+    -- vim.lsp.enable() only auto-activates on *future* buffer events; without
+    -- this nudge the buffer the user is looking at never re-attaches.
+    local h = harness({ enabled = true, clients = { client("pyright", 3) } })
+    lsp.restart("pyright", h.deps)
+    h.clients = {}
+    h.tick()
+
+    assert.is_true(vim.tbl_contains(h.log, "FileType buf=3"))
+  end)
+
+  it("gives up waiting rather than hanging forever", function()
+    local h = harness({ enabled = true, clients = { client("pyright", 1) } })
+    lsp.restart("pyright", h.deps)
+
+    for _ = 1, (lsp.STOP_TIMEOUT_MS / 100) + 2 do
+      h.tick() -- the client never exits
+    end
+
+    assert.is_true(vim.tbl_contains(h.log, "enable pyright true"))
+  end)
+
+  it("stops and restarts per buffer when the config is not vim.lsp.enable-governed", function()
+    local c = client("pyright", 9)
+    local h = harness({ enabled = false, clients = { c } })
+    lsp.restart("pyright", h.deps)
+
+    assert.is_true(c.stopped)
+    h.clients = {}
+    h.tick()
+    assert.same({ "start buf=9" }, h.log)
+  end)
+end)
