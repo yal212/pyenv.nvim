@@ -32,8 +32,12 @@ jobs:
           luaVersion: "5.1"
       - uses: leafo/gh-actions-luarocks@v4
 
+      # One rock per invocation: `luarocks install busted nlua` reads nlua as a
+      # version constraint on busted, not as a second rock.
       - name: Install test dependencies
-        run: luarocks install --tree=.luarocks busted nlua
+        run: |
+          luarocks install --tree=.luarocks busted
+          luarocks install --tree=.luarocks nlua
 
       - name: Run tests
         run: make test LUAROCKS_FLAGS="--tree=.luarocks"
