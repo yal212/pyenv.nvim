@@ -154,6 +154,29 @@ function M.apply(resolution, opts, deps)
   end
 end
 
+---Read the interpreter a running client is actually using.
+---
+---This is what makes it possible to answer "did the wiring take?" rather than
+---"was the wiring attempted?" — the two diverge whenever something else in the
+---user's config also sets pythonPath.
+---@param client table
+---@param name string
+---@return string?
+function M.client_interpreter(client, name)
+  local adapter = M.SERVERS[name]
+  if not adapter then
+    return nil
+  end
+  local node = client
+  for _, key in ipairs(adapter.key) do
+    if type(node) ~= "table" then
+      return nil
+    end
+    node = node[key]
+  end
+  return type(node) == "string" and node or nil
+end
+
 ---Drop any restart that has been scheduled but not yet run. Used by tests.
 function M.reset()
   pending = {}
