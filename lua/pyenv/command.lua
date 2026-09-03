@@ -4,6 +4,7 @@
 --- `:PyenvFoo` commands, per the Neovim plugin conventions.
 local M = {}
 
+local cli = require("pyenv.cli")
 local pyenv = require("pyenv")
 local state = require("pyenv.state")
 
@@ -124,6 +125,152 @@ subcommands.global = {
     vim.fn.writefile({ args[1] }, file)
     notify("pyenv.nvim: global set to " .. args[1])
     pyenv.activate()
+  end,
+}
+
+---Names of installed versions only (not virtualenvs), for `virtualenv`.
+---@return string[]
+local function version_names()
+  local names = {}
+  for _, env in ipairs(pyenv.list()) do
+    if env.kind == "version" then
+      names[#names + 1] = env.name
+    end
+  end
+  return names
+end
+
+--- Versions offered by `pyenv install --list`. Populated on first use; the
+--- fetch takes about a second, which is far too slow to do during completion.
+---@type string[]
+local available = {}
+
+---@param callback fun(versions: string[])
+local function fetch_available(callback)
+  if #available > 0 then
+    return callback(available)
+  end
+  notify("pyenv.nvim: fetching available versions...")
+  local lines = {}
+  cli.run({ "install", "--list" }, {
+    on_output = function(line)
+      lines[#lines + 1] = line
+    end,
+    on_exit = function(code)
+      if code ~= 0 then
+        return notify("pyenv.nvim: could not list available versions", vim.log.levels.ERROR)
+      end
+      available = cli.parse_available(lines)
+      callback(available)
+    end,
+  })
+end
+
+---Run a long-running pyenv command with its output in a floating window.
+---@param title string
+---@param args string[]
+---@param on_success fun()?
+local function managed(title, args, on_success)
+  local handle
+  local progress = require("pyenv.ui.progress").open(title, function()
+    if handle then
+      pcall(function()
+        handle:kill(15)
+      end)
+    end
+  end)
+
+  handle = cli.run(args, {
+    on_output = progress.append,
+    on_exit = function(code)
+      progress.finish(code)
+      if code == 0 and on_success then
+        on_success()
+      end
+    end,
+  })
+
+  -- cli.run already explained why; just take the window back down.
+  if not handle then
+    progress.close()
+  end
+end
+
+subcommands.install = {
+  desc = "Install a Python version",
+  complete = function()
+    return available
+  end,
+  run = function(args)
+    local function install(version)
+      -- -s: succeed quietly if it is already installed.
+      managed("pyenv install " .. version, { "install", "-s", version }, function()
+        notify("pyenv.nvim: installed " .. version)
+        pyenv.activate()
+      end)
+    end
+
+    if args[1] then
+      return install(args[1])
+    end
+    fetch_available(function(versions)
+      vim.ui.select(versions, { prompt = "Install Python version" }, function(choice)
+        if choice then
+          install(choice)
+        end
+      end)
+    end)
+  end,
+}
+
+subcommands.uninstall = {
+  desc = "Remove an installed version or virtualenv",
+  complete = env_names,
+  run = function(args)
+    if not args[1] then
+      return notify("pyenv.nvim: usage: :Pyenv uninstall <name>", vim.log.levels.ERROR)
+    end
+    -- Destructive and not undoable, so always confirm, defaulting to No.
+    if vim.fn.confirm(("Remove %s?"):format(args[1]), "&Yes\n&No", 2, "Question") ~= 1 then
+      return
+    end
+    managed("pyenv uninstall " .. args[1], { "uninstall", "-f", args[1] }, function()
+      notify("pyenv.nvim: removed " .. args[1])
+      pyenv.activate()
+    end)
+  end,
+}
+
+subcommands.virtualenv = {
+  desc = "Create a pyenv virtualenv",
+  complete = version_names,
+  run = function(args)
+    if #args < 2 then
+      return notify("pyenv.nvim: usage: :Pyenv virtualenv <version> <name>", vim.log.levels.ERROR)
+    end
+    managed(("pyenv virtualenv %s %s"):format(args[1], args[2]), {
+      "virtualenv",
+      args[1],
+      args[2],
+    }, function()
+      notify("pyenv.nvim: created " .. args[2])
+      pyenv.activate({ name = args[2] })
+    end)
+  end,
+}
+
+subcommands.rehash = {
+  desc = "Regenerate pyenv shims",
+  run = function()
+    -- Fast and silent; a progress window would be noise.
+    cli.run({ "rehash" }, {
+      on_exit = function(code)
+        notify(
+          code == 0 and "pyenv.nvim: shims rehashed" or "pyenv.nvim: rehash failed",
+          code == 0 and vim.log.levels.INFO or vim.log.levels.ERROR
+        )
+      end,
+    })
   end,
 }
 
