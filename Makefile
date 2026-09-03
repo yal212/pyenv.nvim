@@ -4,9 +4,12 @@
 # is re-executed inside Neovim via nlua. The system busted (Lua 5.4) is wrong for
 # this and is deliberately not used.
 
-LUA_DIR  := /opt/homebrew/opt/luajit
-TREE     := .luarocks
-LUAROCKS := luarocks --lua-version=5.1 --lua-dir=$(LUA_DIR) --tree=$(TREE)
+LUA_DIR        ?= /opt/homebrew/opt/luajit
+TREE           ?= .luarocks
+# Overridable so CI, which already has a 5.1 interpreter configured, can drop
+# the local --lua-dir: make test LUAROCKS_FLAGS="--tree=.luarocks"
+LUAROCKS_FLAGS ?= --lua-version=5.1 --lua-dir=$(LUA_DIR) --tree=$(TREE)
+LUAROCKS       := luarocks $(LUAROCKS_FLAGS)
 SOURCES  := lua plugin spec
 
 .PHONY: all deps test lint fmt fmt-fix check clean

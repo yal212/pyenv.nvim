@@ -1,0 +1,299 @@
+*pyenv.txt*                          pyenv integration for Neovim
+
+Author:  yal212
+License: MIT
+
+==============================================================================
+CONTENTS                                                       *pyenv-contents*
+
+  1. Introduction ........................... |pyenv-introduction|
+  2. Requirements ........................... |pyenv-requirements|
+  3. Installation ........................... |pyenv-installation|
+  4. Resolution ............................. |pyenv-resolution|
+  5. Commands ............................... |pyenv-commands|
+  6. Configuration .......................... |pyenv-configuration|
+  7. Mappings ............................... |pyenv-mappings|
+  8. Statusline ............................. |pyenv-statusline|
+  9. Lua API ................................ |pyenv-api|
+ 10. Health ................................. |pyenv-health|
+ 11. Troubleshooting ........................ |pyenv-troubleshooting|
+
+==============================================================================
+1. INTRODUCTION                                            *pyenv-introduction*
+
+pyenv.nvim makes pyenv a first-class citizen in Neovim. It works out which
+Python is active for the directory you are in, points your language server,
+debugger and terminals at that interpreter, and lets you install versions and
+create virtualenvs without leaving the editor.
+
+Unlike general-purpose virtualenv switchers, it understands pyenv itself: the
+`.python-version` resolution rules, the pyenv-virtualenv layout, and how to run
+`pyenv install`.
+
+It has no plugin dependencies. The picker uses |vim.ui.select()|, so it adopts
+whichever picker you already use.
+
+==============================================================================
+2. REQUIREMENTS                                            *pyenv-requirements*
+
+- Neovim 0.11 or newer (for |vim.lsp.config()| and |vim.lsp.enable()|).
+- pyenv, for installing and removing versions. Listing and switching read
+  `$PYENV_ROOT` directly and work without the `pyenv` executable on your PATH.
+
+==============================================================================
+3. INSTALLATION                                            *pyenv-installation*
+
+With lazy.nvim: >lua
+
+    { "yal212/pyenv.nvim", opts = {} }
+<
+Calling `setup()` is optional. The plugin initialises itself with the defaults
+in |pyenv-configuration|; `opts` merely changes them.
+
+==============================================================================
+4. RESOLUTION                                                *pyenv-resolution*
+
+On startup and whenever the working directory changes, the active environment
+is resolved by taking the first of these that applies:
+
+  1. `override`      an environment pinned with |:Pyenv-activate|
+  2. `shell`         `$PYENV_VERSION`, as set by `pyenv shell`
+  3. `local`         the nearest `.python-version`, searching upward
+  4. `project_venv`  `.venv/` or `venv/` in the project, or `$VIRTUAL_ENV`
+  5. `global`        `$PYENV_ROOT/version`
+  6. `system`        the first python on PATH outside pyenv's shims
+
+Two points differ from pyenv's own behaviour, both deliberately:
+
+A project-local `.venv` outranks the *global* pyenv version (4 before 5). A
+global version is a machine-wide default, whereas a `.venv` belongs to the code
+in front of you. An explicit `.python-version` still beats both. Reorder or
+remove steps with `resolution_order` if you disagree.
+
+A version named by `.python-version` but not installed is reported as missing
+rather than silently falling back to system python, and nothing is wired up.
+Silently using the wrong interpreter is the problem this plugin exists to
+solve.
+
+Shim paths are never used as an interpreter. `$PYENV_ROOT/shims/python` is a
+shell script that pyright cannot introspect and debugpy cannot exec, so
+resolution always ends at a real `$PYENV_ROOT/versions/<v>/bin/python`.
+
+==============================================================================
+5. COMMANDS                                                    *pyenv-commands*
+
+                                                                      *:Pyenv*
+:Pyenv [subcommand] [args]
+        All functionality lives under this one command, with completion for
+        subcommands and their arguments. With no subcommand, behaves as
+        |:Pyenv-status|.
+
+                                                              *:Pyenv-status*
+:Pyenv status
+        Show the active environment, its interpreter, and which file or setting
+        chose it.
+
+                                                              *:Pyenv-select*
+:Pyenv select
+        Choose an environment from a |vim.ui.select()| picker. The choice is
+        remembered for this project.
+
+                                                            *:Pyenv-activate*
+:Pyenv activate {name}
+        Pin {name} for this project. Remembered across sessions in Neovim's
+        data directory; nothing is written into your repository.
+
+                                                               *:Pyenv-reset*
+:Pyenv reset
+        Forget the pinned environment and resolve afresh.
+
+                                                               *:Pyenv-local*
+:Pyenv local [{name}]
+        Write `.python-version` in the current directory, like `pyenv local`.
+        Unlike |:Pyenv-activate| this does create a file in your project, which
+        is why it is a separate, explicit command. With no argument, reports
+        what the current directory's `.python-version` says.
+
+                                                              *:Pyenv-global*
+:Pyenv global [{name}]
+        Set or report `$PYENV_ROOT/version`.
+
+                                                             *:Pyenv-install*
+:Pyenv install [{version}]
+        Install a Python version. Output streams into a floating window; press
+        `q` to close it, which cancels the build if it is still running. With
+        no argument, offers a picker of everything `pyenv install --list`
+        reports (fetched once per session).
+
+                                                           *:Pyenv-uninstall*
+:Pyenv uninstall {name}
+        Remove an installed version or virtualenv. Always asks first.
+
+                                                          *:Pyenv-virtualenv*
+:Pyenv virtualenv {version} {name}
+        Create a pyenv virtualenv and activate it.
+
+                                                              *:Pyenv-rehash*
+:Pyenv rehash
+        Regenerate pyenv's shims.
+
+                                                              *:Pyenv-health*
+:Pyenv health
+        Shorthand for `:checkhealth pyenv`. See |pyenv-health|.
+
+==============================================================================
+6. CONFIGURATION                                          *pyenv-configuration*
+
+Defaults: >lua
+
+    require("pyenv").setup({
+      -- Override $PYENV_ROOT. Defaults to $PYENV_ROOT, then ~/.pyenv.
+      root = nil,
+
+      -- Re-resolve on VimEnter and DirChanged.
+      auto_activate = true,
+
+      -- See |pyenv-resolution|. Steps may be reordered or omitted.
+      resolution_order = {
+        "override", "shell", "local", "project_venv", "global", "system",
+      },
+
+      lsp = {
+        enabled = true,
+        servers = { "pyright", "basedpyright", "pylsp" },
+      },
+
+      dap = { enabled = true },
+
+      terminal = {
+        set_path = true,         -- prepend <env>/bin to PATH
+        set_virtual_env = true,  -- export VIRTUAL_ENV for virtualenvs
+      },
+
+      -- Point g:python3_host_prog at the active environment. Off by default:
+      -- an environment without pynvim installed breaks remote plugins.
+      python3_host_prog = false,
+
+      -- "all" | "changes" | "errors" | false
+      notify = "changes",
+
+      cache = {
+        enabled = true,  -- remember the pinned environment per project
+        path = nil,      -- defaults to stdpath("data")/pyenv.nvim/projects.json
+      },
+    })
+<
+Unknown options and wrong types are rejected with an explicit error rather than
+being silently ignored.
+
+                                                          *pyenv-lsp-servers*
+`lsp.servers` names the servers to reconfigure. pyright and basedpyright are
+restarted, because they do not reliably reload `python.pythonPath` from a
+`workspace/didChangeConfiguration` notification; pylsp is updated in place.
+Restarts within a short window are coalesced, so changing directory rapidly
+does not thrash the server.
+
+ruff is not supported. Its `interpreter` setting is a VS Code extension option
+used to locate the ruff binary, not a language server setting, so there is
+nothing meaningful for this plugin to set.
+
+==============================================================================
+7. MAPPINGS                                                    *pyenv-mappings*
+
+No keys are bound. Two |<Plug>| mappings are provided: >lua
+
+    vim.keymap.set("n", "<leader>pv", "<Plug>(pyenv-select)")
+    vim.keymap.set("n", "<leader>pr", "<Plug>(pyenv-reset)")
+<
+==============================================================================
+8. STATUSLINE                                                *pyenv-statusline*
+
+`require("pyenv.statusline").status()` returns a short description of the
+active environment, or an empty string when there is none. It only reads cached
+state, so it is safe to call on every redraw.
+
+With lualine: >lua
+
+    require("lualine").setup({
+      sections = {
+        lualine_x = { require("pyenv.statusline").lualine() },
+      },
+    })
+<
+Both accept `{ prefix = "py:" }` or `{ icon = "" }`.
+
+==============================================================================
+9. LUA API                                                          *pyenv-api*
+
+                                                            *pyenv.activate()*
+require("pyenv").activate({opts})
+        Resolve and wire up an environment. `opts.name` pins an environment,
+        `opts.cwd` resolves from a directory other than the current one.
+        Returns the resolution.
+
+                                                             *pyenv.current()*
+require("pyenv").current()
+        The active resolution, or nil.
+
+                                                             *pyenv.resolve()*
+require("pyenv").resolve({cwd})
+        Work out what would be active for {cwd}, without changing anything.
+
+                                                                *pyenv.list()*
+require("pyenv").list()
+        Every installed environment, as a list of tables with `name`, `python`,
+        `prefix`, `kind` ("version" or "virtualenv") and `parent`.
+
+                                                              *pyenv.status()*
+require("pyenv").status({resolution})
+        A short description, e.g. "3.12.4" or "proj-env (3.12.4)".
+
+                                                               *pyenv.reset()*
+require("pyenv").reset({opts})
+        Unpin the project and resolve afresh.
+
+                                                                *pyenv.root()*
+require("pyenv").root()
+        The pyenv root in use, or nil.
+
+==============================================================================
+10. HEALTH                                                       *pyenv-health*
+
+`:checkhealth pyenv` reports:
+
+- the pyenv root and how it was determined
+- whether the pyenv executable was found
+- whether pyenv's shims are on PATH (they are not, if pyenv is not initialised
+  in your shell)
+- whether asdf is installed and competing for the same shims
+- whether another environment-switching plugin is loaded
+- the active environment, and *which file* selected it
+- whether the interpreter actually exists and is executable
+- for each running Python language server, the interpreter it is really using,
+  compared against the one this plugin resolved
+
+That last check is the useful one: if something else in your configuration is
+also setting `pythonPath`, this reports it as an error instead of leaving you
+with unexplained import failures.
+
+==============================================================================
+11. TROUBLESHOOTING                                     *pyenv-troubleshooting*
+
+*My language server still uses the wrong Python.*
+Run `:checkhealth pyenv`. If it reports that the server is using a different
+interpreter, something else is setting it. A `before_init` hook in your LSP
+configuration is the usual cause; remove it and let this plugin own the choice.
+
+*Nothing happens when I change directory.*
+`auto_activate` may be off, or your `.python-version` may name a version that
+is not installed. `:checkhealth pyenv` reports both.
+
+*:Pyenv install says pyenv is required.*
+Listing and switching read `$PYENV_ROOT` from disk, but installing needs the
+real pyenv executable. Either put it on your PATH or install pyenv into
+`$PYENV_ROOT` so that `$PYENV_ROOT/bin/pyenv` exists.
+
+*The wrong version stays selected after I change directory.*
+You have probably pinned it with `:Pyenv activate`. `:Pyenv reset` clears it.
+
+vim:tw=78:ts=8:noet:ft=help:norl:

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: test (nvim ${{ matrix.neovim }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [v0.11.0, stable, nightly]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+
+      # Tests must run on 5.1/LuaJIT with the `vim` global available, so busted
+      # is re-executed inside Neovim via nlua.
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: luajit-openresty
+      - uses: leafo/gh-actions-luarocks@v4
+
+      - name: Install test dependencies
+        run: luarocks install --tree=.luarocks busted nlua
+
+      - name: Run tests
+        run: make test LUAROCKS_FLAGS="--tree=.luarocks"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --check lua plugin spec
+
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: luajit-openresty
+      - uses: leafo/gh-actions-luarocks@v4
+      - run: luarocks install luacheck
+      - run: luacheck lua plugin spec
