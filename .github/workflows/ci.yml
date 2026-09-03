@@ -23,9 +23,13 @@ jobs:
 
       # Tests must run on 5.1/LuaJIT with the `vim` global available, so busted
       # is re-executed inside Neovim via nlua.
+      # The luarocks host interpreter is deliberately PUC Lua 5.1, not LuaJIT:
+      # the luarocks.org manifest exceeds LuaJIT's 65536-constant bytecode limit
+      # and fails to load. Rocks still target 5.1, and the tests themselves still
+      # run inside Neovim's LuaJIT, because busted is re-executed through nlua.
       - uses: leafo/gh-actions-lua@v10
         with:
-          luaVersion: luajit-openresty
+          luaVersion: "5.1"
       - uses: leafo/gh-actions-luarocks@v4
 
       - name: Install test dependencies
@@ -45,9 +49,10 @@ jobs:
           version: latest
           args: --check lua plugin spec
 
+      # See the note in the test job: LuaJIT cannot load the luarocks manifest.
       - uses: leafo/gh-actions-lua@v10
         with:
-          luaVersion: luajit-openresty
+          luaVersion: "5.1"
       - uses: leafo/gh-actions-luarocks@v4
       - run: luarocks install luacheck
       - run: luacheck lua plugin spec
