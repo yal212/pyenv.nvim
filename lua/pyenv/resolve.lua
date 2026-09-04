@@ -127,25 +127,31 @@ end
 ---@param opts pyenv.ResolveOpts
 ---@return pyenv.Resolution?
 local function venv_in_project(opts)
-  for _, dirname in ipairs({ ".venv", "venv" }) do
-    local found = vim.fs.find(dirname, {
-      upward = true,
-      path = opts.cwd,
-      type = "directory",
-      limit = 1,
-    })[1]
-    if found then
-      local python = found .. "/bin/python"
-      if vim.fn.executable(python) == 1 then
-        return {
-          version = vim.fs.basename(found),
-          python = python,
-          prefix = found,
-          kind = "venv",
-          origin = "project_venv",
-          origin_file = found,
-        }
-      end
+  -- Both names go into one search. `vim.fs.find` walks up a directory at a time
+  -- and stats every name at each level, so the results are nearest-first across
+  -- both names, and `.venv` still beats `venv` inside a single directory.
+  -- Searching for `.venv` all the way to `/` before trying `venv` at all would
+  -- let a stray `.venv` in $HOME capture every `venv`-using project under it.
+  --
+  -- No `limit = 1`: a venv-shaped directory with no usable interpreter must be
+  -- skipped in favour of the next candidate, not treated as the answer.
+  local candidates = vim.fs.find({ ".venv", "venv" }, {
+    upward = true,
+    path = opts.cwd,
+    type = "directory",
+    limit = math.huge,
+  })
+  for _, found in ipairs(candidates) do
+    local python = found .. "/bin/python"
+    if vim.fn.executable(python) == 1 then
+      return {
+        version = vim.fs.basename(found),
+        python = python,
+        prefix = found,
+        kind = "venv",
+        origin = "project_venv",
+        origin_file = found,
+      }
     end
   end
 
