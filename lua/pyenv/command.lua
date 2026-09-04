@@ -150,9 +150,9 @@ local function fetch_available(callback)
   if #available > 0 then
     return callback(available)
   end
-  notify("pyenv.nvim: fetching available versions...")
+
   local lines = {}
-  cli.run({ "install", "--list" }, {
+  local handle = cli.run({ "install", "--list" }, {
     on_output = function(line)
       lines[#lines + 1] = line
     end,
@@ -164,6 +164,16 @@ local function fetch_available(callback)
       callback(available)
     end,
   })
+
+  -- cli.run has already reported the missing binary and given up without
+  -- spawning anything, so neither callback will ever fire. Announcing the fetch
+  -- before this point left "fetching..." standing as the last thing on screen
+  -- with nothing able to resolve it -- the same nil return `managed` handles by
+  -- taking its progress window back down.
+  if not handle then
+    return
+  end
+  notify("pyenv.nvim: fetching available versions...")
 end
 
 ---Run a long-running pyenv command with its output in a floating window.
