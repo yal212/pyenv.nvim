@@ -37,8 +37,14 @@ end
 function M.apply(resolution, opts)
   opts = opts or {}
 
+  -- An environment that is not installed gets no wiring at all. `lsp`, `dap` and
+  -- `python3_host_prog` already decline it; PATH must not be the odd one out,
+  -- because the synthesised prefix does not exist and prepending it would say
+  -- an interpreter is available there when none is.
+  local usable = resolution.prefix and not resolution.missing
+
   if opts.set_path then
-    repath(resolution.prefix and (resolution.prefix .. "/bin") or nil)
+    repath(usable and (resolution.prefix .. "/bin") or nil)
   end
 
   -- Only pyenv-managed environments have a name pyenv understands. Exporting
@@ -48,7 +54,7 @@ function M.apply(resolution, opts)
 
   if opts.set_virtual_env then
     local is_venv = resolution.kind == "virtualenv" or resolution.kind == "venv"
-    vim.env.VIRTUAL_ENV = is_venv and resolution.prefix or nil
+    vim.env.VIRTUAL_ENV = usable and is_venv and resolution.prefix or nil
   end
 end
 
