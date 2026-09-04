@@ -316,6 +316,22 @@ describe("pyenv.integrations.lsp restart", function()
     }, h.started)
   end)
 
+  it("skips a client that has no config to start from", function()
+    local h = harness({
+      enabled = false,
+      clients = {
+        { name = "pyright", attached_buffers = { [5] = true }, stop = function() end },
+        client_at("pyright", "/work/A", { 6 }),
+      },
+    })
+    assert.has_no.errors(function()
+      lsp.restart("pyright", h.deps)
+      h.clients = {}
+      h.tick()
+    end)
+    assert.same({ { root = "/work/A", buf = 6 } }, h.started)
+  end)
+
   it("re-fires FileType once per buffer when two clients share one", function()
     local h = harness({
       enabled = true,
