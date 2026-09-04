@@ -96,6 +96,36 @@ describe("pyenv.integrations.env", function()
       assert.equals("/usr/bin:/bin", vim.env.PATH)
     end)
 
+    it("does not point PATH at an environment that is not installed", function()
+      -- A .python-version naming an uninstalled version resolves to a
+      -- synthesised prefix that does not exist. lsp, dap and python3_host_prog
+      -- all decline to wire that up; PATH must not be the odd one out.
+      env.apply({
+        version = "3.11.9",
+        kind = "version",
+        prefix = "/pyenv/versions/3.11.9",
+        python = "/pyenv/versions/3.11.9/bin/python",
+        missing = true,
+      }, all)
+
+      assert.equals(0, path_entries("/pyenv/versions/3.11.9/bin"))
+      assert.equals("/usr/bin:/bin", vim.env.PATH)
+    end)
+
+    it("removes the previous environment when the next one is missing", function()
+      env.apply(version("/pyenv/versions/3.12.4", "3.12.4"), all)
+      env.apply({
+        version = "3.11.9",
+        kind = "version",
+        prefix = "/pyenv/versions/3.11.9",
+        python = "/pyenv/versions/3.11.9/bin/python",
+        missing = true,
+      }, all)
+
+      assert.equals(0, path_entries("/pyenv/versions/3.12.4/bin"))
+      assert.equals("/usr/bin:/bin", vim.env.PATH)
+    end)
+
     it("tolerates a resolution with no prefix", function()
       assert.has_no.errors(function()
         env.apply({ version = "system", kind = "system", python = "/usr/bin/python3" }, all)
