@@ -35,17 +35,30 @@ end, { desc = "pyenv: reset environment" })
 
 local group = vim.api.nvim_create_augroup("PyenvNvim", { clear = true })
 
+---Resolve and wire up the environment for `cwd`. Scheduled so that startup is
+---never blocked by filesystem work, and so that a `setup()` call made during
+---plugin load has already been applied by the time this runs.
+---@param cwd string?
+local function activate(cwd)
+  vim.schedule(function()
+    if require("pyenv.config").get().auto_activate then
+      require("pyenv").activate({ cwd = cwd })
+    end
+  end)
+end
+
 vim.api.nvim_create_autocmd({ "VimEnter", "DirChanged" }, {
   group = group,
   desc = "Resolve the active pyenv environment for the current directory",
   callback = function(event)
-    if not require("pyenv.config").get().auto_activate then
-      return
-    end
-    local cwd = event.event == "DirChanged" and vim.v.event.cwd or nil
-    -- Scheduled so startup is never blocked by filesystem work.
-    vim.schedule(function()
-      require("pyenv").activate({ cwd = cwd })
-    end)
+    activate(event.event == "DirChanged" and vim.v.event.cwd or nil)
   end,
 })
+
+-- If this file is sourced after startup has finished -- a lazy-loaded plugin,
+-- `:Lazy reload`, or a plain `require` from the command line -- then VimEnter
+-- has already fired and will never fire again, so the autocmd above would leave
+-- the plugin permanently inactive. Resolve straight away instead.
+if vim.v.vim_did_enter == 1 then
+  activate(nil)
+end
