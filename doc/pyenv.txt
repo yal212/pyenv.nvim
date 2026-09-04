@@ -120,10 +120,16 @@ resolution always ends at a real `$PYENV_ROOT/versions/<v>/bin/python`.
 
                                                              *:Pyenv-install*
 :Pyenv install [{version}]
+:Pyenv install --refresh
         Install a Python version. Output streams into a floating window; press
-        `q` to close it, which cancels the build if it is still running. With
-        no argument, offers a picker of everything `pyenv install --list`
-        reports (fetched once per session).
+        `q` to close it, which cancels the build if it is still running. Focus
+        stays where you left it, including when the build ends. With no
+        argument, offers a picker of everything `pyenv install --list` reports.
+
+        That list is fetched once and kept for the session. Completion primes
+        it in the background, so the first <Tab> offers nothing and a later one
+        offers versions. `--refresh` throws the cache away and fetches again,
+        for a Python released since Neovim started.
 
                                                            *:Pyenv-uninstall*
 :Pyenv uninstall {name}

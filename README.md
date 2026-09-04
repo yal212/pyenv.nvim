@@ -44,6 +44,7 @@ directly.
 :Pyenv                          " status: what's active, and why
 :Pyenv select                   " pick an environment
 :Pyenv install 3.13.2           " streamed into a floating window, cancellable
+:Pyenv install --refresh        " re-read the list of installable versions
 :Pyenv virtualenv 3.12.4 myapp  " create and activate
 :checkhealth pyenv              " diagnose
 ```
