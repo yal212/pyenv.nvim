@@ -36,7 +36,13 @@ snapshot()
 ---@return pyenv.Config
 function M.setup(opts)
   local cfg = config.setup(opts)
-  snapshot()
+  -- Only while nothing is active. Re-taking the snapshot after an activation
+  -- would capture the plugin's own exports and pin every later resolution to
+  -- them, which is the whole failure `original` exists to prevent. Checked
+  -- before `state.reset` below, which clears exactly this signal.
+  if not state.current() then
+    snapshot()
+  end
   state.reset({ path = cfg.cache.path, enabled = cfg.cache.enabled })
   return cfg
 end
