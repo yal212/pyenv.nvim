@@ -70,17 +70,25 @@ function M.run(args, opts, deps)
   end
 
   local system = deps.system or vim.system
-  local emit = opts.on_output
-      and line_reader(function(line)
-        vim.schedule(function()
-          opts.on_output(line)
-        end)
+
+  -- One reader per stream, sharing nothing. libuv delivers the two pipes
+  -- independently, so a single buffer would splice a whole line from one into
+  -- the middle of a half-received line from the other -- which is precisely
+  -- what `pyenv install` does for minutes on end.
+  local function make_emit()
+    if not opts.on_output then
+      return nil
+    end
+    return line_reader(function(line)
+      vim.schedule(function()
+        opts.on_output(line)
       end)
-    or nil
+    end)
+  end
 
   return system(
     vim.list_extend({ binary }, args),
-    { text = true, stdout = emit, stderr = emit },
+    { text = true, stdout = make_emit(), stderr = make_emit() },
     function(obj)
       if opts.on_exit then
         vim.schedule(function()
