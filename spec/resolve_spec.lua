@@ -68,6 +68,31 @@ describe("pyenv.resolve", function()
       assert.equals("venv", r.kind)
     end)
 
+    it("prefers the nearest venv, not the nearest .venv", function()
+      -- Searching all the way up for .venv before venv is tried at all lets a
+      -- stray .venv in $HOME or at a monorepo root capture every venv-using
+      -- project beneath it.
+      local dir = fx.project({ [".venv"] = true, ["sub/venv"] = true })
+      local r = resolve.resolve({ root = root, cwd = dir .. "/sub", path = bare_path() })
+
+      assert.equals("project_venv", r.origin)
+      assert.equals(dir .. "/sub/venv", r.prefix)
+    end)
+
+    it("prefers .venv over venv when both sit in the same directory", function()
+      local dir = fx.project({ [".venv"] = true, ["venv"] = true })
+      local r = resolve.resolve({ root = root, cwd = dir, path = bare_path() })
+
+      assert.equals(dir .. "/.venv", r.prefix)
+    end)
+
+    it("skips a venv-shaped directory with no usable interpreter", function()
+      local dir = fx.project({ ["sub/.venv/lib"] = "", ["sub/venv"] = true })
+      local r = resolve.resolve({ root = root, cwd = dir .. "/sub", path = bare_path() })
+
+      assert.equals(dir .. "/sub/venv", r.prefix)
+    end)
+
     it("prefers .python-version over a project .venv", function()
       local r = resolve.resolve({
         root = root,
