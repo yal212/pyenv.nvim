@@ -70,6 +70,47 @@ describe("pyenv.cli", function()
       assert.same({ "one", "two", "three" }, lines)
     end)
 
+    it("keeps stdout and stderr from corrupting each other's partial lines", function()
+      -- The two pipes arrive independently and interleaved. A line buffer shared
+      -- between them splices a whole stderr line into the middle of a half-read
+      -- stdout one, which is exactly what `pyenv install` produces for minutes.
+      local captured, lines = {}, {}
+      cli.run({ "install", "3.12.4" }, {
+        on_output = function(line)
+          lines[#lines + 1] = line
+        end,
+      }, { system = fake_system(captured), binary = "/bin/pyenv" })
+
+      captured.opts.stdout(nil, "Downloading Python-3.12.4") -- partial
+      captured.opts.stderr(nil, "WARNING: build deps missing\n") -- complete
+      captured.opts.stdout(nil, ".tar.xz...\n") -- the rest of the partial line
+      vim.wait(200, function()
+        return #lines >= 2
+      end)
+
+      assert.same({ "WARNING: build deps missing", "Downloading Python-3.12.4.tar.xz..." }, lines)
+    end)
+
+    it("flushes each stream's trailing line separately", function()
+      local captured, lines = {}, {}
+      cli.run({ "version-name" }, {
+        on_output = function(line)
+          lines[#lines + 1] = line
+        end,
+      }, { system = fake_system(captured), binary = "/bin/pyenv" })
+
+      captured.opts.stdout(nil, "3.12.4")
+      captured.opts.stderr(nil, "warning")
+      captured.opts.stdout(nil, nil)
+      captured.opts.stderr(nil, nil)
+      vim.wait(200, function()
+        return #lines >= 2
+      end)
+
+      table.sort(lines)
+      assert.same({ "3.12.4", "warning" }, lines)
+    end)
+
     it("flushes a trailing line that has no newline", function()
       local captured, lines = {}, {}
       cli.run({ "version-name" }, {
