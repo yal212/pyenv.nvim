@@ -86,17 +86,56 @@ function M.run(args, opts, deps)
     end)
   end
 
-  return system(
-    vim.list_extend({ binary }, args),
-    { text = true, stdout = make_emit(), stderr = make_emit() },
-    function(obj)
-      if opts.on_exit then
-        vim.schedule(function()
-          opts.on_exit(obj.code)
-        end)
-      end
+  return system(vim.list_extend({ binary }, args), {
+    text = true,
+    -- In its own process group, so that `stop` below can take down everything
+    -- the command spawns rather than only the command itself.
+    detach = true,
+    stdout = make_emit(),
+    stderr = make_emit(),
+  }, function(obj)
+    if opts.on_exit then
+      -- A process killed by a signal reports code 0 with the signal beside it,
+      -- so passing the code straight through would present a cancelled install
+      -- as a completed one -- "installed 3.12.9" for a build that was stopped
+      -- half way. 128 + signal is what a shell reports for the same thing.
+      local code = obj.signal and obj.signal ~= 0 and (128 + obj.signal) or obj.code
+      vim.schedule(function()
+        opts.on_exit(code)
+      end)
     end
-  )
+  end)
+end
+
+---Stop a running command, and everything it spawned with it.
+---
+---`run` starts children detached, so each leads its own process group and a
+---negative pid takes the whole tree down. That is the entire point: `pyenv
+---install` is a bash script that spawns python-build, which spawns make, which
+---spawns a compiler. Signalling the script alone leaves the build running --
+---and finishing, and installing the version that was just cancelled.
+---@param handle table?  the handle `run` returned
+---@param deps { kill: fun(pid: integer, signal: string|integer) }? test seam
+---@return boolean stopped
+function M.stop(handle, deps)
+  local kill = (deps or {}).kill or vim.uv.kill
+  local pid = handle and handle.pid
+
+  -- A negative pid names a process group, and group 0 is the caller's own:
+  -- `kill(-0, ...)` would take Neovim down along with the build. Anything that
+  -- is not a real child pid is not worth the risk.
+  if type(pid) ~= "number" or pid <= 1 then
+    return false
+  end
+
+  if pcall(kill, -pid, "sigterm") then
+    return true
+  end
+
+  -- The group is the point, but stopping the child alone beats stopping nothing.
+  return pcall(function()
+    handle:kill(15)
+  end)
 end
 
 ---Parse the output of `pyenv install --list`.
