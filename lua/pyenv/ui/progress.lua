@@ -65,15 +65,18 @@ function M.open(title, on_cancel)
     close()
   end, { buffer = buf, nowait = true, desc = "close (cancels if still running)" })
 
+  -- Focus is deliberately left where the user put it. The window is opened with
+  -- `enter = false` so as not to interrupt, and `pyenv install` runs for minutes
+  -- on end, by which time the user has moved on and is typing somewhere else.
+  -- Taking the cursor at that point is the same interruption merely deferred,
+  -- and it lands in a buffer where `q` closes the window, so an interrupted
+  -- `q`-prefixed motion throws the result away.
   local function finish(code)
     append("")
     append(
       code == 0 and "-- done. press q to close --"
         or ("-- failed (exit %d). press q to close --"):format(code)
     )
-    if vim.api.nvim_win_is_valid(win) then
-      vim.api.nvim_set_current_win(win)
-    end
   end
 
   return { append = append, finish = finish, close = close, buf = buf, win = win }

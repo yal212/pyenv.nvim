@@ -47,6 +47,24 @@ describe("pyenv.ui.progress", function()
     assert.is_truthy(lines()[#lines()]:match("failed %(exit 2%)"))
   end)
 
+  it("leaves focus where the user put it when the run finishes", function()
+    -- Regression guard. `pyenv install` runs for minutes; by the time it lands
+    -- the user is typing in another buffer, and this window maps `q` to close.
+    local before = vim.api.nvim_get_current_win()
+    handle = progress.open("test")
+    handle.finish(0)
+
+    assert.equals(before, vim.api.nvim_get_current_win())
+  end)
+
+  it("leaves focus alone on failure too", function()
+    local before = vim.api.nvim_get_current_win()
+    handle = progress.open("test")
+    handle.finish(2)
+
+    assert.equals(before, vim.api.nvim_get_current_win())
+  end)
+
   it("cancels when the window is closed with q", function()
     local cancelled = false
     handle = progress.open("test", function()
