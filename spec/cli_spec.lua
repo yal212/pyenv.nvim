@@ -51,6 +51,30 @@ describe("pyenv.cli", function()
       assert.is_true(captured.killed)
     end)
 
+    it("hands the configured root to pyenv, which cannot infer it", function()
+      -- pyenv takes its root from $PYENV_ROOT or ~/.pyenv, never from the path
+      -- of the binary that was invoked, so a root that only this plugin knows
+      -- about has to be exported to the child or every mutation lands in a
+      -- different tree from the one the plugin reads.
+      local captured = {}
+      config.setup({ root = "/opt/pyenv-test" })
+      cli.run({ "rehash" }, {}, {
+        system = fake_system(captured),
+        binary = "/opt/pyenv-test/bin/pyenv",
+      })
+      assert.equals("/opt/pyenv-test", captured.opts.env.PYENV_ROOT)
+    end)
+
+    it("leaves the environment alone when there is no root to hand over", function()
+      local captured = {}
+      config.reset()
+      vim.env.PYENV_ROOT = nil
+      vim.env.HOME = fx.tmpdir("home") -- no ~/.pyenv inside it
+
+      cli.run({ "rehash" }, {}, { system = fake_system(captured), binary = "/usr/bin/pyenv" })
+      assert.is_nil(captured.opts.env)
+    end)
+
     it("starts the child in its own process group", function()
       -- So that cancelling can signal the group. `pyenv install` is a bash
       -- script; a signal to it alone leaves python-build and make running.

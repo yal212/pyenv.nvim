@@ -123,7 +123,15 @@ local function check_active(reporter, root)
   -- instead of as silent wrongness.
   local binary = root and root_mod.binary(root)
   if binary and resolution.origin ~= "override" and resolution.origin ~= "project_venv" then
-    local out = vim.system({ binary, "version-name" }, { text = true }):wait(3000)
+    -- The root has to go with it. Without it pyenv answers about ~/.pyenv, and
+    -- a check meant to catch a real divergence instead invents one -- "pyenv
+    -- reports 'system' but this plugin resolved '3.12.9'" -- or, when the
+    -- version is simply not installed over there, exits non-zero and is skipped.
+    local proc = vim.system({ binary, "version-name" }, {
+      text = true,
+      env = { PYENV_ROOT = root },
+    })
+    local out = proc:wait(3000)
     local reported = vim.trim(out.stdout or "")
     if out.code == 0 and reported ~= "" and reported ~= resolution.version then
       reporter.warn(
