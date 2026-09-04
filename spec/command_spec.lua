@@ -7,12 +7,13 @@ local session = require("pyenv.session")
 local state = require("pyenv.state")
 
 describe("pyenv.command", function()
-  local root, saved_env, saved_notify, saved_run, notifications
+  local root, saved_env, saved_notify, saved_run, saved_stop, notifications
 
   before_each(function()
     -- command.lua holds a reference to this very table, so replacing the field
     -- swaps the implementation out from under it without touching the module.
     saved_run = cli.run
+    saved_stop = cli.stop
 
     saved_env = { PATH = vim.env.PATH, PYENV_VERSION = vim.env.PYENV_VERSION }
     vim.env.PATH = "/usr/bin:/bin"
@@ -43,6 +44,7 @@ describe("pyenv.command", function()
 
   after_each(function()
     cli.run = saved_run
+    cli.stop = saved_stop
     vim.notify = saved_notify
     require("pyenv.integrations.env").reset()
     config.reset()
@@ -165,6 +167,41 @@ describe("pyenv.command", function()
 
     after_each(function()
       vim.ui.select = saved_select
+    end)
+
+    it("stops the whole command when the progress window is cancelled", function()
+      -- The floating window binds q to this. Nothing else takes a running
+      -- install back down, so a handle that is not passed on is a build that
+      -- keeps compiling with its window gone.
+      local handle = { pid = 4242 }
+      local stopped
+      cli.run = function()
+        return handle
+      end
+      cli.stop = function(given)
+        stopped = given
+      end
+
+      command.run({ fargs = { "install", "3.12.4" } })
+
+      local buf
+      for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_valid(b) and vim.bo[b].filetype == "pyenv-progress" then
+          buf = b
+        end
+      end
+      assert.is_truthy(buf)
+
+      local cancel
+      for _, map in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+        if map.lhs == "q" then
+          cancel = map.callback
+        end
+      end
+      assert.is_truthy(cancel)
+      cancel()
+
+      assert.equals(handle, stopped)
     end)
 
     it("says nothing about fetching when nothing was spawned", function()

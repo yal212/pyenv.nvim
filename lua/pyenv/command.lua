@@ -207,11 +207,9 @@ end
 local function managed(title, args, on_success)
   local handle
   local progress = require("pyenv.ui.progress").open(title, function()
-    if handle then
-      pcall(function()
-        handle:kill(15)
-      end)
-    end
+    -- Everything the command spawned, not just the command: an install that
+    -- survives its own cancellation goes on to install the version anyway.
+    cli.stop(handle)
   end)
 
   handle = cli.run(args, {
