@@ -106,22 +106,34 @@ end
 ---    events. It does not retroactively attach to a buffer that is already
 ---    open, which is exactly the buffer the user is looking at.
 ---
----So: remember the attached buffers, wait for the old clients to exit, re-enable,
----then re-fire FileType to trigger attachment. Anything started through
----`vim.lsp.start()` directly is not governed by `vim.lsp.enable` and is instead
----stopped and started again per buffer.
+---So: remember which buffers each client had, wait for the old clients to exit,
+---re-enable, then re-fire FileType to trigger attachment. Anything started
+---through `vim.lsp.start()` directly is not governed by `vim.lsp.enable` and is
+---instead stopped and started again in its own buffers.
 ---@param name string
 ---@param deps pyenv.RestartDeps?
 function M.restart(name, deps)
   deps = deps or real_deps()
 
+  -- Each config stays paired with the buffers of the client it came from. Two
+  -- clients can share a name -- two workspace roots open at once -- and starting
+  -- every config in every buffer would give each buffer a duplicate server
+  -- rooted at the wrong workspace.
+  ---@type { config: table, buffers: integer[] }[]
+  local groups = {}
+  ---@type integer[] every attached buffer, each listed once
   local buffers = {}
-  local configs = {}
+  local seen = {}
   for _, client in ipairs(deps.get_clients({ name = name })) do
-    configs[#configs + 1] = client.config
+    local own = {}
     for buf in pairs(client.attached_buffers or {}) do
-      buffers[#buffers + 1] = buf
+      own[#own + 1] = buf
+      if not seen[buf] then
+        seen[buf] = true
+        buffers[#buffers + 1] = buf
+      end
     end
+    groups[#groups + 1] = { config = client.config, buffers = own }
   end
 
   local ok, enabled = pcall(deps.is_enabled, name)
@@ -130,10 +142,10 @@ function M.restart(name, deps)
       client:stop()
     end
     when_stopped(name, deps, function()
-      for _, config in ipairs(configs) do
-        for _, buf in ipairs(buffers) do
+      for _, group in ipairs(groups) do
+        for _, buf in ipairs(group.buffers) do
           if deps.buf_is_valid(buf) then
-            deps.start(config, { bufnr = buf })
+            deps.start(group.config, { bufnr = buf })
           end
         end
       end

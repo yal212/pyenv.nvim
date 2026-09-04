@@ -175,7 +175,8 @@ describe("pyenv.integrations.lsp restart", function()
   ---A controllable stand-in for the Neovim LSP surface. `defer` queues
   ---callbacks instead of using real timers, so the test drives the clock.
   local function harness(opts)
-    local h = { log = {}, clients = opts.clients or {}, enabled = opts.enabled, queue = {} }
+    local h =
+      { log = {}, started = {}, clients = opts.clients or {}, enabled = opts.enabled, queue = {} }
 
     h.deps = {
       get_clients = function()
@@ -193,8 +194,9 @@ describe("pyenv.integrations.lsp restart", function()
       defer = function(fn)
         table.insert(h.queue, fn)
       end,
-      start = function(_, o)
+      start = function(config, o)
         table.insert(h.log, ("start buf=%d"):format(o.bufnr))
+        table.insert(h.started, { root = config.root_dir, buf = o.bufnr })
       end,
       buf_is_valid = function()
         return true
@@ -218,6 +220,22 @@ describe("pyenv.integrations.lsp restart", function()
       name = name,
       config = { name = name },
       attached_buffers = { [buf] = true },
+      stop = function(self)
+        self.stopped = true
+      end,
+    }
+  end
+
+  ---A client with its own workspace root and its own set of attached buffers.
+  local function client_at(name, root, buffers)
+    local attached = {}
+    for _, buf in ipairs(buffers) do
+      attached[buf] = true
+    end
+    return {
+      name = name,
+      config = { name = name, root_dir = root },
+      attached_buffers = attached,
       stop = function(self)
         self.stopped = true
       end,
@@ -270,5 +288,52 @@ describe("pyenv.integrations.lsp restart", function()
     h.clients = {}
     h.tick()
     assert.same({ "start buf=9" }, h.log)
+  end)
+
+  it("restarts each client into its own buffers, not into every buffer", function()
+    -- Two workspace roots open at once. Flattening every config and every buffer
+    -- into two independent lists and starting the cross-product gives each
+    -- buffer a duplicate server rooted at the wrong workspace.
+    local h = harness({
+      enabled = false,
+      clients = {
+        client_at("pyright", "/work/A", { 1, 2 }),
+        client_at("pyright", "/work/B", { 7 }),
+      },
+    })
+    lsp.restart("pyright", h.deps)
+    h.clients = {}
+    h.tick()
+
+    -- attached_buffers is a set, so the order within one client is arbitrary.
+    table.sort(h.started, function(a, b)
+      return a.buf < b.buf
+    end)
+    assert.same({
+      { root = "/work/A", buf = 1 },
+      { root = "/work/A", buf = 2 },
+      { root = "/work/B", buf = 7 },
+    }, h.started)
+  end)
+
+  it("re-fires FileType once per buffer when two clients share one", function()
+    local h = harness({
+      enabled = true,
+      clients = {
+        client_at("pyright", "/work/A", { 4 }),
+        client_at("pyright", "/work/B", { 4 }),
+      },
+    })
+    lsp.restart("pyright", h.deps)
+    h.clients = {}
+    h.tick()
+
+    local fired = 0
+    for _, entry in ipairs(h.log) do
+      if entry == "FileType buf=4" then
+        fired = fired + 1
+      end
+    end
+    assert.equals(1, fired)
   end)
 end)
