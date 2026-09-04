@@ -3,6 +3,7 @@ local command = require("pyenv.command")
 local config = require("pyenv.config")
 local fx = require("fixtures")
 local pyenv = require("pyenv")
+local session = require("pyenv.session")
 local state = require("pyenv.state")
 
 describe("pyenv.command", function()
@@ -16,6 +17,9 @@ describe("pyenv.command", function()
     saved_env = { PATH = vim.env.PATH, PYENV_VERSION = vim.env.PYENV_VERSION }
     vim.env.PATH = "/usr/bin:/bin"
     vim.env.PYENV_VERSION = nil
+    -- The environment snapshot is taken once per process and survives a reload,
+    -- so drop the previous case's before setup() takes this one's.
+    session.forget()
 
     root = fx.pyenv_root({
       versions = { "3.11.9", "3.12.4" },

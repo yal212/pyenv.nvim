@@ -8,27 +8,12 @@ local envs = require("pyenv.envs")
 local env_integration = require("pyenv.integrations.env")
 local resolve = require("pyenv.resolve")
 local root = require("pyenv.root")
+local session = require("pyenv.session")
 local state = require("pyenv.state")
 
---- The environment as it was before this plugin touched it.
----
---- Resolution must read these rather than the live values. The plugin exports
---- `PYENV_VERSION`, `VIRTUAL_ENV` and `PATH` itself, so reading the live
---- environment back would let a value it wrote on one activation win as a
---- "shell" or "project venv" match on the next — pinning the whole session to
---- whatever the first directory happened to resolve to.
----@type { version: string?, virtual_env: string?, path: string? }
-local original = {}
-
-local function snapshot()
-  original = {
-    version = vim.env.PYENV_VERSION,
-    virtual_env = vim.env.VIRTUAL_ENV,
-    path = vim.env.PATH,
-  }
-end
-
-snapshot()
+-- Take the pristine environment snapshot before anything has a chance to
+-- activate and export over it.
+session.original()
 
 ---Apply user configuration. Optional, but must run before anything activates —
 ---which is the case when called from a plugin spec or `init.lua`.
@@ -36,13 +21,10 @@ snapshot()
 ---@return pyenv.Config
 function M.setup(opts)
   local cfg = config.setup(opts)
-  -- Only while nothing is active. Re-taking the snapshot after an activation
-  -- would capture the plugin's own exports and pin every later resolution to
-  -- them, which is the whole failure `original` exists to prevent. Checked
-  -- before `state.reset` below, which clears exactly this signal.
-  if not state.current() then
-    snapshot()
-  end
+  -- A no-op if the snapshot has already been taken, which is the point: setup()
+  -- may run again at any time, and re-taking it after an activation would
+  -- capture the plugin's own exports.
+  session.original()
   state.reset({ path = cfg.cache.path, enabled = cfg.cache.enabled })
   return cfg
 end
@@ -64,6 +46,7 @@ end
 ---@return pyenv.Resolution
 function M.resolve(cwd)
   local cfg = config.get()
+  local original = session.original()
   cwd = cwd or vim.fn.getcwd()
   return resolve.resolve({
     root = M.root() or "",
