@@ -133,7 +133,11 @@ function M.restart(name, deps)
         buffers[#buffers + 1] = buf
       end
     end
-    groups[#groups + 1] = { config = client.config, buffers = own }
+    -- A client with no config cannot be started again; the flat buffer list
+    -- still covers it, so the `vim.lsp.enable` path re-attaches it either way.
+    if client.config then
+      groups[#groups + 1] = { config = client.config, buffers = own }
+    end
   end
 
   local ok, enabled = pcall(deps.is_enabled, name)
