@@ -1,3 +1,4 @@
+local cli = require("pyenv.cli")
 local command = require("pyenv.command")
 local config = require("pyenv.config")
 local fx = require("fixtures")
@@ -5,9 +6,13 @@ local pyenv = require("pyenv")
 local state = require("pyenv.state")
 
 describe("pyenv.command", function()
-  local root, saved_env, saved_notify, notifications
+  local root, saved_env, saved_notify, saved_run, notifications
 
   before_each(function()
+    -- command.lua holds a reference to this very table, so replacing the field
+    -- swaps the implementation out from under it without touching the module.
+    saved_run = cli.run
+
     saved_env = { PATH = vim.env.PATH, PYENV_VERSION = vim.env.PYENV_VERSION }
     vim.env.PATH = "/usr/bin:/bin"
     vim.env.PYENV_VERSION = nil
@@ -33,6 +38,7 @@ describe("pyenv.command", function()
   end)
 
   after_each(function()
+    cli.run = saved_run
     vim.notify = saved_notify
     require("pyenv.integrations.env").reset()
     config.reset()
@@ -129,6 +135,36 @@ describe("pyenv.command", function()
     it("reports the current global version when given no argument", function()
       command.run({ fargs = { "global" } })
       assert.is_truthy(notifications[#notifications].msg:match("3%.11%.9"))
+    end)
+  end)
+
+  describe("install", function()
+    it("says nothing about fetching when nothing was spawned", function()
+      -- cli.run reports the missing binary and returns nil without spawning, so
+      -- neither of its callbacks will ever fire. A "fetching..." message
+      -- announced anyway would stand there with nothing able to resolve it.
+      cli.run = function()
+        return nil
+      end
+
+      command.run({ fargs = { "install" } })
+
+      assert.equals(0, #notifications)
+    end)
+
+    it("announces the fetch once the process is running, and reports failure", function()
+      local exit
+      cli.run = function(_, opts)
+        exit = opts.on_exit
+        return { pid = 1 }
+      end
+
+      command.run({ fargs = { "install" } })
+      assert.is_truthy(notifications[#notifications].msg:match("fetching"))
+
+      exit(1)
+      assert.equals(vim.log.levels.ERROR, notifications[#notifications].level)
+      assert.is_truthy(notifications[#notifications].msg:match("could not list"))
     end)
   end)
 end)
