@@ -17,11 +17,20 @@ local root_mod = require("pyenv.root")
 ---@field on_output fun(line: string)?  called per line of combined output
 ---@field on_exit   fun(code: integer)? called once the process finishes
 
+---The root in use and the executable that goes with it, found together so that
+---the root deciding *which* binary to run is also the one handed to it.
+---@return string? root, string? binary
+local function locate()
+  local cfg = config.get()
+  local root = root_mod.find({ configured = cfg.root, env = vim.env.PYENV_ROOT })
+  return root, root_mod.binary(root)
+end
+
 ---Locate the pyenv executable, or nil.
 ---@return string?
 function M.binary()
-  local cfg = config.get()
-  return root_mod.binary(root_mod.find({ configured = cfg.root, env = vim.env.PYENV_ROOT }))
+  local _, binary = locate()
+  return binary
 end
 
 ---Split a stream chunk into whole lines. `vim.system` hands over arbitrary
@@ -59,7 +68,8 @@ function M.run(args, opts, deps)
   opts = opts or {}
   deps = deps or {}
 
-  local binary = deps.binary or M.binary()
+  local root, located = locate()
+  local binary = deps.binary or located
   if not binary then
     vim.notify(
       "pyenv.nvim: the pyenv executable is required for this command.\n"
@@ -88,6 +98,12 @@ function M.run(args, opts, deps)
 
   return system(vim.list_extend({ binary }, args), {
     text = true,
+    -- pyenv reads its root from the environment, or falls back to ~/.pyenv --
+    -- never from the path of the binary that was invoked. A root this plugin
+    -- knows about has to be handed over explicitly, or a configured root ends
+    -- up reading one tree and writing to another. Merged with the inherited
+    -- environment, since `clear_env` is not set.
+    env = root and { PYENV_ROOT = root } or nil,
     -- In its own process group, so that `stop` below can take down everything
     -- the command spawns rather than only the command itself.
     detach = true,
