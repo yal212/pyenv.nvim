@@ -140,28 +140,51 @@ local function version_names()
   return names
 end
 
---- Versions offered by `pyenv install --list`. Populated on first use; the
---- fetch takes about a second, which is far too slow to do during completion.
+--- Versions offered by `pyenv install --list`, kept for the session. The fetch
+--- takes about a second, far too slow to run inside a <Tab> handler, so
+--- completion starts one in the background and reads this on a later keystroke.
 ---@type string[]
 local available = {}
 
----@param callback fun(versions: string[])
+--- Callbacks waiting on the fetch currently in flight, or nil when there is
+--- none. Completion primes the cache in the background, so a burst of <Tab>
+--- presses has to join the one fetch rather than start a `pyenv` apiece.
+---@type fun(versions: string[])[]?
+local waiting = nil
+
+---Fill `available`, then hand it to `callback` if there is one. Called without
+---a callback purely to prime the cache.
+---@param callback fun(versions: string[])?
 local function fetch_available(callback)
   if #available > 0 then
-    return callback(available)
+    return callback and callback(available)
+  end
+  if waiting then
+    if callback then
+      waiting[#waiting + 1] = callback
+    end
+    return
   end
 
   local lines = {}
+  -- Assigned before the spawn so that neither the exit callback nor the
+  -- nil-handle path below can see a queue that is only half set up.
+  waiting = callback and { callback } or {}
+
   local handle = cli.run({ "install", "--list" }, {
     on_output = function(line)
       lines[#lines + 1] = line
     end,
     on_exit = function(code)
+      local queued = waiting or {}
+      waiting = nil
       if code ~= 0 then
         return notify("pyenv.nvim: could not list available versions", vim.log.levels.ERROR)
       end
       available = cli.parse_available(lines)
-      callback(available)
+      for _, ready in ipairs(queued) do
+        ready(available)
+      end
     end,
   })
 
@@ -171,6 +194,7 @@ local function fetch_available(callback)
   -- with nothing able to resolve it -- the same nil return `managed` handles by
   -- taking its progress window back down.
   if not handle then
+    waiting = nil
     return
   end
   notify("pyenv.nvim: fetching available versions...")
@@ -209,7 +233,17 @@ end
 subcommands.install = {
   desc = "Install a Python version",
   complete = function()
-    return available
+    if #available == 0 then
+      -- Prime in the background: this keystroke gets nothing, the next one
+      -- finds the list ready. Fetching inline would stall <Tab> for a second,
+      -- and nothing else populates the cache until `:Pyenv install` is run bare.
+      fetch_available()
+      return {}
+    end
+    -- Offered only now that there is something to refresh. As the sole
+    -- candidate it would make the first <Tab> complete straight to `--refresh`,
+    -- which is the opposite of what that keystroke was asking for.
+    return vim.list_extend({ "--refresh" }, available)
   end,
   run = function(args)
     local function install(version)
@@ -218,6 +252,13 @@ subcommands.install = {
         notify("pyenv.nvim: installed " .. version)
         pyenv.activate()
       end)
+    end
+
+    -- The cache lasts the session and never expires on its own, so a Python
+    -- released since Neovim started would otherwise stay out of reach.
+    if args[1] == "--refresh" then
+      available = {}
+      table.remove(args, 1)
     end
 
     if args[1] then

@@ -20,8 +20,9 @@ globals = {
 
 -- busted globals in the spec tree
 files["spec/"] = {
-  -- Tests swap vim.notify out to capture messages.
-  globals = { "vim.notify" },
+  -- Tests swap these out to capture what the plugin would have shown: messages
+  -- via vim.notify, and the items handed to a picker via vim.ui.select.
+  globals = { "vim.notify", "vim.ui.select" },
   read_globals = {
     "describe", "it", "before_each", "after_each",
     "setup", "teardown", "pending", "assert",

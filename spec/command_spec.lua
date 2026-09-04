@@ -139,6 +139,30 @@ describe("pyenv.command", function()
   end)
 
   describe("install", function()
+    local saved_select, offered
+
+    before_each(function()
+      saved_select = vim.ui.select
+      offered = nil
+      vim.ui.select = function(items)
+        offered = items
+      end
+
+      -- The version list is module state that outlives an example, and a warm
+      -- cache would send the next test straight to the picker. --refresh clears
+      -- it through the public surface; the stub means nothing is spawned to do
+      -- so, and nothing is left in flight afterwards.
+      cli.run = function()
+        return nil
+      end
+      command.run({ fargs = { "install", "--refresh" } })
+      notifications = {}
+    end)
+
+    after_each(function()
+      vim.ui.select = saved_select
+    end)
+
     it("says nothing about fetching when nothing was spawned", function()
       -- cli.run reports the missing binary and returns nil without spawning, so
       -- neither of its callbacks will ever fire. A "fetching..." message
@@ -165,6 +189,73 @@ describe("pyenv.command", function()
       exit(1)
       assert.equals(vim.log.levels.ERROR, notifications[#notifications].level)
       assert.is_truthy(notifications[#notifications].msg:match("could not list"))
+    end)
+
+    it("primes the version list in the background on first completion", function()
+      local spawned, exit = {}, nil
+      cli.run = function(args, opts)
+        spawned[#spawned + 1] = table.concat(args, " ")
+        exit = function()
+          opts.on_output("Available versions:")
+          opts.on_output("  3.13.2")
+          opts.on_output("  3.12.4")
+          opts.on_exit(0)
+        end
+        return { pid = 1 }
+      end
+
+      -- Fetching inline would stall the keystroke for about a second, so the
+      -- first <Tab> comes back empty and starts the fetch instead. Before this,
+      -- nothing primed the cache and completion stayed empty all session.
+      assert.same({}, command.complete("", "Pyenv install "))
+      assert.same({ "install --list" }, spawned)
+
+      exit()
+      assert.same({ "--refresh", "3.13.2", "3.12.4" }, command.complete("", "Pyenv install "))
+      assert.same({ "3.13.2" }, command.complete("3.13", "Pyenv install 3.13"))
+    end)
+
+    it("joins the fetch in flight rather than starting another", function()
+      local spawned, last = 0, nil
+      cli.run = function(_, opts)
+        spawned = spawned + 1
+        last = opts
+        return { pid = 1 }
+      end
+
+      command.complete("", "Pyenv install ")
+      command.complete("", "Pyenv install ")
+      command.complete("3.1", "Pyenv install 3.1")
+
+      assert.equals(1, spawned)
+
+      last.on_exit(0)
+      assert.equals(1, spawned)
+    end)
+
+    it("re-fetches the version list on --refresh", function()
+      local spawned, exit = 0, nil
+      cli.run = function(_, opts)
+        spawned = spawned + 1
+        exit = function(versions)
+          for _, version in ipairs(versions) do
+            opts.on_output(version)
+          end
+          opts.on_exit(0)
+        end
+        return { pid = 1 }
+      end
+
+      command.complete("", "Pyenv install ")
+      exit({ "3.12.4" })
+      assert.same({ "--refresh", "3.12.4" }, command.complete("", "Pyenv install "))
+
+      command.run({ fargs = { "install", "--refresh" } })
+      assert.equals(2, spawned)
+      exit({ "3.12.4", "3.13.2" })
+
+      assert.same({ "3.12.4", "3.13.2" }, offered)
+      assert.same({ "--refresh", "3.12.4", "3.13.2" }, command.complete("", "Pyenv install "))
     end)
   end)
 end)
