@@ -2,6 +2,7 @@ local config = require("pyenv.config")
 local fx = require("fixtures")
 local health = require("pyenv.health")
 local pyenv = require("pyenv")
+local session = require("pyenv.session")
 local state = require("pyenv.state")
 
 ---Collects what the health check reports, in place of `vim.health`.
@@ -54,6 +55,9 @@ describe("pyenv.health", function()
     vim.env.PATH = "/usr/bin:/bin"
     vim.env.PYENV_VERSION = nil
     vim.env.PYENV_ROOT = nil
+    -- The environment snapshot is taken once per process and survives a reload,
+    -- so drop the previous case's before setup() takes this one's.
+    session.forget()
 
     root = fx.pyenv_root({ versions = { "3.11.9", "3.12.4" }, global = "3.11.9" })
     configure()

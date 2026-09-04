@@ -2,21 +2,23 @@
 --- `vim.system()` and anything else Neovim spawns agrees with the editor.
 local M = {}
 
---- The `bin` directory this module last prepended to PATH. Tracked so it can be
---- removed before the next one is added: without this, every switch leaks
---- another stale directory onto PATH until the wrong interpreter wins.
----@type string?
-local applied_bin = nil
+local session = require("pyenv.session")
 
 ---Rebuild PATH with `bin` at the front, having removed both our previous entry
 ---and any pre-existing copy of `bin`.
 ---@param bin string?
 local function repath(bin)
+  -- The entry we added last time, which has to go before the next one arrives:
+  -- without this, every switch leaks another stale directory onto PATH until the
+  -- wrong interpreter wins. It is tracked in `session` rather than in a local
+  -- because PATH outlives this module -- an instance that came up after a reload
+  -- must still be able to subtract its predecessor's entry.
+  local applied = session.path_entry()
   local entries = {}
   for entry in vim.gsplit(vim.env.PATH or "", ":", { plain = true }) do
     -- Empty entries mean "current directory" in POSIX and are a hazard; dropping
     -- them while rebuilding is a small bonus.
-    if entry ~= "" and entry ~= applied_bin and entry ~= bin then
+    if entry ~= "" and entry ~= applied and entry ~= bin then
       entries[#entries + 1] = entry
     end
   end
@@ -24,7 +26,7 @@ local function repath(bin)
     table.insert(entries, 1, bin)
   end
   vim.env.PATH = table.concat(entries, ":")
-  applied_bin = bin
+  session.set_path_entry(bin)
 end
 
 ---@class pyenv.EnvOpts
