@@ -87,6 +87,20 @@ describe("pyenv (public API)", function()
       assert.equals("global", r.origin)
     end)
 
+    it("does not let a later setup() re-snapshot the plugin's own exports", function()
+      -- setup() may be called again at runtime -- from a keymap, or by a plugin
+      -- manager reloading the spec. If it re-took the snapshot then, it would
+      -- read back the PYENV_VERSION the first activation exported and every
+      -- directory from that point on would keep the first project's version.
+      local a = fx.project({ [".python-version"] = "3.12.4\n" })
+      local b = fx.project({ [".python-version"] = "3.11.9\n" })
+
+      assert.equals("3.12.4", pyenv.activate({ cwd = a }).version)
+      configure()
+
+      assert.equals("3.11.9", pyenv.activate({ cwd = b }).version)
+    end)
+
     it("pins an environment for the project when given a name", function()
       local proj = fx.project({ [".python-version"] = "3.11.9\n" })
       assert.equals("3.12.4", pyenv.activate({ cwd = proj, name = "3.12.4" }).version)
