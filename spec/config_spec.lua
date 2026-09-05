@@ -74,6 +74,38 @@ describe("pyenv.config", function()
     end, "pyenv.nvim: unknown lsp strategy 'reboot'")
   end)
 
+  it("accepts every notify level", function()
+    for _, level in ipairs({ "all", "changes", "errors" }) do
+      config.setup({ notify = level })
+      assert.equals(level, config.get().notify)
+    end
+    config.setup({ notify = false })
+    assert.is_false(config.get().notify)
+  end)
+
+  it("takes notify = true as a way of spelling all", function()
+    -- false means off, so true meaning on is the only reading available. It is
+    -- normalised here so nothing downstream has to know about the second
+    -- spelling.
+    config.setup({ notify = true })
+    assert.equals("all", config.get().notify)
+  end)
+
+  it("rejects a misspelled notify level", function()
+    assert.has_error(function()
+      config.setup({ notify = "chages" })
+    end, "pyenv.nvim: unknown notify level 'chages' (expected 'all', 'changes', 'errors' or false)")
+  end)
+
+  it('rejects the string "false", which used to mean the opposite', function()
+    -- The nastiest of the typos this catches: a string passes the type check,
+    -- matches none of announce()'s early returns, and so notifies on every
+    -- single resolution -- exactly what asking for "false" meant to prevent.
+    assert.has_error(function()
+      config.setup({ notify = "false" })
+    end, "pyenv.nvim: unknown notify level 'false' (expected 'all', 'changes', 'errors' or false)")
+  end)
+
   it("allows nil for options that default to nil", function()
     assert.has_no.errors(function()
       config.setup({ root = "/opt/pyenv" })

@@ -12,6 +12,10 @@ version.
 
 ### Fixed
 
+- `notify` is checked by value, not only by type. A misspelling no longer falls
+  through to the noisiest setting - most importantly `notify = "false"`, the
+  string rather than the boolean, which asked for silence and produced a
+  notification on every resolution. `notify = true` is accepted as `"all"`.
 - `g:python3_host_prog` is reverted when the environment stops being usable,
   instead of being left pointing at the previous project's interpreter while
   `PATH`, `$PYENV_VERSION` and `$VIRTUAL_ENV` have all released it. A value the

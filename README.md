@@ -187,12 +187,13 @@ require("pyenv").setup({
 | `terminal.set_path` | `boolean` | `true` | Prepend `<env>/bin` to `PATH` |
 | `terminal.set_virtual_env` | `boolean` | `true` | Export `VIRTUAL_ENV` for virtualenvs |
 | `python3_host_prog` | `boolean` | `false` | Point `g:python3_host_prog` at the env; reverted when it stops being usable |
-| `notify` | `"all"`, `"changes"`, `"errors"`, `false` | `"changes"` | |
+| `notify` | `"all"`, `"changes"`, `"errors"`, `false` | `"changes"` | Checked by value; `true` means `"all"` |
 | `cache.enabled` | `boolean` | `true` | Remember the pin per project |
 | `cache.path` | `string?` | `nil` | Defaults to `stdpath("data")/pyenv.nvim/projects.json` |
 
-Unknown options and wrong types are rejected with an explicit error rather than
-silently ignored. List-like tables are replaced wholesale rather than merged
+Unknown options, wrong types and unrecognised values for `notify` and
+`lsp.strategy` are rejected with an explicit error rather than silently
+ignored. List-like tables are replaced wholesale rather than merged
 index by index, so `lsp.servers = { "pyright" }` really does mean only pyright.
 
 The per-project pin is keyed by project root - the nearest ancestor containing

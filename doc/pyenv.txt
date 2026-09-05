@@ -196,7 +196,7 @@ Defaults: >lua
       -- remote plugin.
       python3_host_prog = false,
 
-      -- "all" | "changes" | "errors" | false
+      -- "all" | "changes" | "errors" | false; true means "all"
       notify = "changes",
 
       cache = {
@@ -220,8 +220,11 @@ List-like tables are replaced wholesale rather than merged index by index, so
 `lsp.servers = { "pyright" }` really does mean only pyright, not pyright plus
 whatever the defaults contained.
 
-`notify` is checked for type but not for value, so a misspelling is accepted
-and behaves as "all".
+`notify` is checked by value as well as by type. A misspelling is rejected
+rather than falling through to the noisiest setting, which matters most for
+`notify = "false"` -- a string, not the boolean, and so previously a request
+for silence that produced a notification on every resolution. `notify = true`
+is accepted as a way of spelling "all".
 
                                                            *pyenv-lsp-servers*
 `lsp.servers` names the servers to reconfigure. `lsp.strategy` says how a
