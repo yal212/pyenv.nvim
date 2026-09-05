@@ -12,7 +12,7 @@ LUAROCKS_FLAGS ?= --lua-version=5.1 --lua-dir=$(LUA_DIR) --tree=$(TREE)
 LUAROCKS       := luarocks $(LUAROCKS_FLAGS)
 SOURCES  := lua plugin spec
 
-.PHONY: all deps test lint fmt fmt-fix check clean
+.PHONY: all deps test lint fmt fmt-fix check demo clean
 
 all: check
 
@@ -38,6 +38,16 @@ fmt-fix:
 	stylua $(SOURCES)
 
 check: fmt lint test
+
+## Re-record the README GIFs. Needs pyenv, vhs and ffmpeg, and takes
+## minutes: it builds real CPython versions rather than filming a fixture.
+## Deliberately not part of `check`. See demo/README.md.
+demo:
+	bash demo/setup.sh
+	@mkdir -p demo/out
+	vhs demo/tour.tape
+	vhs demo/install.tape
+	bash demo/compress.sh
 
 clean:
 	rm -rf $(TREE) luacov.*.out

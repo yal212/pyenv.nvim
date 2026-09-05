@@ -98,6 +98,11 @@ Two rules for the vimdoc:
 
 `doc/tags` is generated and gitignored; don't commit it.
 
+The two GIFs in the README are generated too — `make demo` records them against
+a real pyenv installation rather than a fixture. Anything that changes what the
+plugin puts on screen dates them; [`demo/README.md`](demo/README.md) covers
+re-recording and what to check when you do.
+
 ## Architecture
 
 [`docs/design.md`](docs/design.md) records the module boundaries and the
