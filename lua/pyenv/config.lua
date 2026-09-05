@@ -20,6 +20,7 @@ local resolve = require("pyenv.resolve")
 ---@class pyenv.Config.Lsp
 ---@field enabled boolean
 ---@field servers string[]
+---@field strategy "notify"|"restart" how a *running* client is told about a new interpreter
 
 ---@class pyenv.Config.Dap
 ---@field enabled boolean
@@ -39,6 +40,10 @@ M.defaults = {
   lsp = {
     enabled = true,
     servers = { "pyright", "basedpyright", "pylsp" },
+    -- A notification updates a running server in place; a restart makes it
+    -- re-index the whole project. See `pyenv.integrations.lsp` for what the
+    -- restart buys and when it is worth asking for.
+    strategy = "notify",
   },
   dap = { enabled = true },
   terminal = {
@@ -62,6 +67,7 @@ local SCHEMA = {
   lsp = {
     enabled = "boolean",
     servers = "table",
+    strategy = "string",
   },
   dap = { enabled = "boolean" },
   terminal = {
@@ -75,6 +81,11 @@ local SCHEMA = {
     path = "string",
   },
 }
+
+--- Accepted `lsp.strategy` values. Checked by value and not just by type: a
+--- typo that fell through to the default would leave a running server pointed
+--- at the old interpreter without saying so.
+local STRATEGIES = { notify = true, restart = true }
 
 ---@param message string
 local function fail(message)
@@ -147,6 +158,11 @@ function M.setup(opts)
     if not valid_steps[step] then
       fail(("unknown resolution step '%s'"):format(tostring(step)))
     end
+  end
+
+  local strategy = opts.lsp and opts.lsp.strategy
+  if strategy ~= nil and not STRATEGIES[strategy] then
+    fail(("unknown lsp strategy '%s'"):format(tostring(strategy)))
   end
 
   current = merge(M.defaults, opts)

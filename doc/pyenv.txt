@@ -167,6 +167,7 @@ Defaults: >lua
       lsp = {
         enabled = true,
         servers = { "pyright", "basedpyright", "pylsp" },
+        strategy = "notify",  -- "notify" | "restart"
       },
 
       dap = { enabled = true },
@@ -193,12 +194,23 @@ Unknown options and wrong types are rejected with an explicit error rather than
 being silently ignored.
 
                                                           *pyenv-lsp-servers*
-`lsp.servers` names the servers to reconfigure. pylsp is updated in place with
-a `workspace/didChangeConfiguration` notification. pyright and basedpyright are
-restarted: a notification carries settings and nothing else, while a restart
-also relaunches the server under the new environment, and it holds for server
-versions that ignore the notification. Restarts within a short window are
-coalesced, so changing directory rapidly does not thrash the server.
+`lsp.servers` names the servers to reconfigure. `lsp.strategy` says how a
+server that is already running is told about a new interpreter.
+
+"notify", the default, sends a `workspace/didChangeConfiguration` notification
+and updates the client in place. All three supported servers were measured
+acting on one: pylsp 1.15.0, pyright 1.1.407 and basedpyright 1.39.10 each
+stopped resolving the old environment's packages and started resolving the new
+one's, on the same client, with no restart.
+
+"restart" relaunches the server instead. It buys two things a notification
+cannot: it holds for server versions nobody has measured, and it starts the
+server under the new $VIRTUAL_ENV and PATH. That second one is narrow -- every
+server started afterwards gets the new environment under either strategy, so it
+only affects a server that is already running, and none of the three needs it
+today because all of them take the interpreter from settings. The cost is a
+full re-index on every switch. Restarts within a short window are coalesced, so
+changing directory rapidly does not thrash the server.
 
 ruff is not supported. Its `interpreter` setting is a VS Code extension option
 used to locate the ruff binary, not a language server setting, so there is

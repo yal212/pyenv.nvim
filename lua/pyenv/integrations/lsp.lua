@@ -7,37 +7,39 @@
 --- by notification or by restart.
 local M = {}
 
---- How long to wait before acting on a restart request. A `DirChanged` burst
---- fires several activations in quick succession; without this window each one
---- would tear down and rebuild the language server.
+--- How long to wait before acting on a restart request. Under the `restart`
+--- strategy a `DirChanged` burst fires several activations in quick succession;
+--- without this window each one would tear down and rebuild the language
+--- server.
 M.RESTART_DELAY_MS = 50
 
---- Where each server wants the interpreter path, and how it copes with being
---- told about a new one.
+--- Where each server wants the interpreter path.
 ---
---- pylsp is updated in place with a `workspace/didChangeConfiguration`
---- notification. It re-reads `environment` on every request, so the very next
---- completion resolves against the new interpreter.
+--- All three are told about a new one with a `workspace/didChangeConfiguration`
+--- notification, which is what `lsp.strategy` defaults to. Each was measured
+--- acting on it: pylsp 1.15.0 re-reads `environment` on every request, so the
+--- very next completion resolves against the new interpreter, and pyright
+--- 1.1.407 and basedpyright 1.39.10 each stopped resolving the old
+--- environment's packages and started resolving the new one's, on the same
+--- client, with no restart.
 ---
---- pyright and basedpyright are restarted instead. Both were measured to act on
---- the notification too (pyright 1.1.412, basedpyright 1.39.10), so the restart
---- is not there to work around a server that ignores it. It is there because a
---- notification carries settings and nothing else, whereas a restart also
---- relaunches the server under the new `cmd_env` -- and because it holds for
---- versions that have not been measured. Switching environments is rare enough
---- that the re-index is affordable.
+--- So the strategy is a user preference rather than a property of the server,
+--- and `lsp.strategy = "restart"` is the escape hatch. It buys two things a
+--- notification cannot: it holds for server versions nobody has measured, and
+--- it relaunches the server under the new `cmd_env`. That second one is
+--- narrower than it sounds -- `vim.lsp.config()` carries `cmd_env` to every
+--- *future* client either way, and only a client that is already running keeps
+--- the environment it was spawned with. No server here needs it today, because
+--- all three take the interpreter from settings.
 ---
 --- ruff is deliberately absent: its `interpreter` setting is a VS Code
 --- extension option used to locate the ruff binary, not a language server
 --- setting, and it plays no part in how ruff lints.
----@type table<string, { key: string[], strategy: "restart"|"notify" }>
+---@type table<string, { key: string[] }>
 M.SERVERS = {
-  pyright = { key = { "settings", "python", "pythonPath" }, strategy = "restart" },
-  basedpyright = { key = { "settings", "python", "pythonPath" }, strategy = "restart" },
-  pylsp = {
-    key = { "settings", "pylsp", "plugins", "jedi", "environment" },
-    strategy = "notify",
-  },
+  pyright = { key = { "settings", "python", "pythonPath" } },
+  basedpyright = { key = { "settings", "python", "pythonPath" } },
+  pylsp = { key = { "settings", "pylsp", "plugins", "jedi", "environment" } },
 }
 
 ---@type table<string, fun(name: string)>
@@ -213,7 +215,7 @@ end
 
 ---Point the configured servers at `resolution`.
 ---@param resolution pyenv.Resolution
----@param opts { servers: string[] }
+---@param opts { servers: string[], strategy: ("notify"|"restart")? }
 ---@param deps pyenv.LspDeps? injection seam for tests
 function M.apply(resolution, opts, deps)
   -- Wiring a server to an interpreter that does not exist is worse than leaving
@@ -226,6 +228,9 @@ function M.apply(resolution, opts, deps)
   local get_clients = deps.get_clients or vim.lsp.get_clients
   local restart = deps.restart or M.restart
   local cmd_env = server_env(resolution)
+  -- Defaulted here rather than relied on from the config, so a direct call with
+  -- a bare `{ servers = ... }` gets the same strategy the plugin ships with.
+  local strategy = opts.strategy or "notify"
 
   for _, name in ipairs(opts.servers or {}) do
     local adapter = M.SERVERS[name]
@@ -236,7 +241,7 @@ function M.apply(resolution, opts, deps)
 
       local clients = get_clients({ name = name })
       if #clients > 0 then
-        if adapter.strategy == "notify" then
+        if strategy == "notify" then
           for _, client in ipairs(clients) do
             client.settings =
               vim.tbl_deep_extend("force", client.settings or {}, config.settings or {})
