@@ -12,6 +12,10 @@ version.
 
 ### Fixed
 
+- `g:python3_host_prog` is reverted when the environment stops being usable,
+  instead of being left pointing at the previous project's interpreter while
+  `PATH`, `$PYENV_VERSION` and `$VIRTUAL_ENV` have all released it. A value the
+  user set before the plugin loaded is restored rather than cleared.
 - The test suite passes on machines that have pyenv installed. `cli.run` read
   its injected `binary` seam with `or`, so a spec injecting `false` for "there
   is no pyenv" got the real lookup instead - and on a machine with pyenv, ran

@@ -191,8 +191,9 @@ Defaults: >lua
         set_virtual_env = true,  -- export VIRTUAL_ENV for virtualenvs
       },
 
-      -- Point g:python3_host_prog at the active environment. Off by default:
-      -- an environment without pynvim installed breaks remote plugins.
+      -- Point g:python3_host_prog at the active environment. Off by
+      -- default: an environment without pynvim installed breaks every
+      -- remote plugin.
       python3_host_prog = false,
 
       -- "all" | "changes" | "errors" | false
@@ -206,6 +207,14 @@ Defaults: >lua
 <
 Unknown options and wrong types are rejected with an explicit error, prefixed
 `pyenv.nvim:`, rather than being silently ignored.
+
+With `python3_host_prog` on, `g:python3_host_prog` is reverted whenever the
+environment stops being usable -- moving to a project whose `.python-version`
+names a version that is not installed, say -- rather than being left pointing
+at the previous project's interpreter. PATH, $PYENV_VERSION and $VIRTUAL_ENV
+are all released at that point, and the Python host used not to be. What goes
+back is whatever the variable held before the plugin loaded, so a host you set
+yourself survives.
 
 List-like tables are replaced wholesale rather than merged index by index, so
 `lsp.servers = { "pyright" }` really does mean only pyright, not pyright plus

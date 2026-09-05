@@ -98,8 +98,9 @@ describe("pyenv.integrations.env", function()
 
     it("does not point PATH at an environment that is not installed", function()
       -- A .python-version naming an uninstalled version resolves to a
-      -- synthesised prefix that does not exist. lsp, dap and python3_host_prog
-      -- all decline to wire that up; PATH must not be the odd one out.
+      -- synthesised prefix that does not exist. lsp and dap decline to wire
+      -- that up and python3_host_prog reverts; PATH must not be the odd one
+      -- out.
       env.apply({
         version = "3.11.9",
         kind = "version",

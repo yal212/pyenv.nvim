@@ -131,6 +131,69 @@ describe("pyenv (public API)", function()
     end)
   end)
 
+  describe("python3_host_prog", function()
+    local saved_host_prog
+
+    before_each(function()
+      saved_host_prog = vim.g.python3_host_prog
+    end)
+
+    after_each(function()
+      vim.g.python3_host_prog = saved_host_prog
+    end)
+
+    it("points the Python host at the active interpreter", function()
+      configure({ python3_host_prog = true })
+      pyenv.activate({ cwd = fx.project({ [".python-version"] = "3.12.4\n" }) })
+
+      assert.equals(root .. "/versions/3.12.4/bin/python", vim.g.python3_host_prog)
+    end)
+
+    it("clears it when the environment is no longer usable", function()
+      -- Regression guard for #22. Every other exported value is reverted when
+      -- the resolution turns out to be unusable; declining to *set* this one
+      -- left it pointing at the previous project's interpreter, so remote
+      -- plugins kept running against an environment PATH, PYENV_VERSION and
+      -- VIRTUAL_ENV had all already let go of.
+      -- Nothing of the user's to put back, so "revert" means clear. Set before
+      -- the snapshot is taken, so the case does not depend on what an earlier
+      -- test happened to leave behind.
+      vim.g.python3_host_prog = nil
+      session.forget()
+      configure({ python3_host_prog = true })
+
+      pyenv.activate({ cwd = fx.project({ [".python-version"] = "3.12.4\n" }) })
+      assert.is_truthy(vim.g.python3_host_prog)
+
+      pyenv.activate({ cwd = fx.project({ [".python-version"] = "3.13.0\n" }) })
+
+      assert.is_nil(vim.g.python3_host_prog)
+    end)
+
+    it("restores the value the user set, rather than flattening it", function()
+      -- The snapshot is taken before the plugin has exported anything, so what
+      -- goes back is the user's own host, not nil. This mirrors PATH, which
+      -- subtracts only the entry the plugin added.
+      vim.g.python3_host_prog = "/usr/bin/python3"
+      session.forget()
+      configure({ python3_host_prog = true })
+
+      pyenv.activate({ cwd = fx.project({ [".python-version"] = "3.12.4\n" }) })
+      assert.equals(root .. "/versions/3.12.4/bin/python", vim.g.python3_host_prog)
+
+      pyenv.activate({ cwd = fx.project({ [".python-version"] = "3.13.0\n" }) })
+      assert.equals("/usr/bin/python3", vim.g.python3_host_prog)
+    end)
+
+    it("leaves the variable alone when the option is off", function()
+      vim.g.python3_host_prog = "/usr/bin/python3"
+      configure() -- python3_host_prog defaults to false
+      pyenv.activate({ cwd = fx.project({ [".python-version"] = "3.12.4\n" }) })
+
+      assert.equals("/usr/bin/python3", vim.g.python3_host_prog)
+    end)
+  end)
+
   describe("reset", function()
     it("drops the pinned environment and resolves afresh", function()
       local proj = fx.project({ [".python-version"] = "3.11.9\n" })
