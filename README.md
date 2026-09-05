@@ -104,10 +104,12 @@ committed `.python-version`.
 
 ### Language servers
 
-pyright and basedpyright are **restarted**, because they don't reliably reload
-`python.pythonPath` from a `didChangeConfiguration` notification. pylsp is
-updated in place. Restarts inside a short window are coalesced so rapid
-directory changes don't thrash the server.
+pylsp is **updated in place** with a `didChangeConfiguration` notification.
+pyright and basedpyright are **restarted**: a notification carries settings and
+nothing else, while a restart also relaunches the server under the new
+environment, and it holds for server versions that ignore the notification.
+Restarts inside a short window are coalesced so rapid directory changes don't
+thrash the server.
 
 ruff isn't supported: its `interpreter` setting is a VS Code extension option
 for locating the ruff binary, not a language server setting.

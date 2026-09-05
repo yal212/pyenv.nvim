@@ -81,6 +81,13 @@ buffer for clients not governed by `vim.lsp.enable`.
 Restarts are **coalesced** behind a short timer so a burst of `DirChanged` events causes one
 restart, not five.
 
+> **Measured 2026-09-05 (#3, #4).** The premise above is wrong for current versions: pyright
+> 1.1.412 and basedpyright 1.39.10 both *do* act on `workspace/didChangeConfiguration` — driven
+> through the notify path alone, a running client stopped resolving the old environment's
+> packages and started resolving the new one's, with no restart. The restart is kept anyway,
+> because it also relaunches the server under the new `cmd_env` and holds for versions that have
+> not been measured, but it is no longer justified by the servers being unable to reload.
+
 ### D5 — Per-project cache, never write to the user's repo
 
 A manual pick is remembered in `stdpath("data")` keyed by project root. Writing
