@@ -14,7 +14,7 @@ local resolve = require("pyenv.resolve")
 ---@field dap               pyenv.Config.Dap
 ---@field terminal          pyenv.Config.Terminal
 ---@field python3_host_prog boolean  point `g:python3_host_prog` at the active env
----@field notify            "all"|"changes"|"errors"|false
+---@field notify            "all"|"changes"|"errors"|false  `true` is accepted as "all"
 ---@field cache             pyenv.Config.Cache
 
 ---@class pyenv.Config.Lsp
@@ -86,6 +86,17 @@ local SCHEMA = {
 --- typo that fell through to the default would leave a running server pointed
 --- at the old interpreter without saying so.
 local STRATEGIES = { notify = true, restart = true }
+
+--- Accepted `notify` levels, for the same reason and with a worse failure.
+--- `announce()` dispatches on exact values and has no final else, so anything
+--- unrecognised behaves as "all" -- and `notify = "false"`, a string rather
+--- than the boolean, is the plausible mistake that lands there: asking for
+--- silence and getting a notification on every single resolution.
+---
+--- `true` is not a typo but an intent, so it is accepted and normalised to
+--- "all" below; `false` already means off, which leaves nothing else it could
+--- reasonably mean.
+local NOTIFY = { all = true, changes = true, errors = true }
 
 ---@param message string
 local function fail(message)
@@ -165,7 +176,20 @@ function M.setup(opts)
     fail(("unknown lsp strategy '%s'"):format(tostring(strategy)))
   end
 
+  local notify = opts.notify
+  if notify ~= nil and notify ~= false and notify ~= true and not NOTIFY[notify] then
+    -- Naming the accepted values, because the mistake this catches is usually
+    -- the string "false" and the difference is invisible without them.
+    local expected = "(expected 'all', 'changes', 'errors' or false)"
+    fail(("unknown notify level '%s' %s"):format(tostring(notify), expected))
+  end
+
   current = merge(M.defaults, opts)
+  -- One representation downstream: `announce()` never has to know that `true`
+  -- was ever a way of spelling "all".
+  if current.notify == true then
+    current.notify = "all"
+  end
   return current
 end
 
