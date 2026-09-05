@@ -4,3 +4,6 @@ luarocks/
 luacov.*
 .DS_Store
 doc/tags
+
+# Demo recording intermediates; the GIFs themselves are committed.
+demo/out/

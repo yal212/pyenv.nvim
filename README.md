@@ -8,6 +8,11 @@ pyenv integration for Neovim. Works out which Python is active for the directory
 you're in, points your LSP, debugger and terminals at it, and lets you install
 versions and create virtualenvs without leaving the editor.
 
+![Resolving, switching and auto-activating Python environments in Neovim](assets/demo.gif)
+
+*The same `:Pyenv` in two projects: the answer changes, and it names the file
+that decided it.*
+
 No plugin dependencies. The picker uses `vim.ui.select`, so it adopts whichever
 picker you already have.
 
@@ -144,6 +149,11 @@ A few details worth knowing:
 - **`activate`** is remembered per project in `stdpath("data")` — nothing is
   written into your repository. Use `:Pyenv local` when you actually want a
   committed `.python-version`.
+
+![:Pyenv install streaming a real CPython build into a floating window](assets/install.gif)
+
+*A real build, time-compressed in the middle. The minutes it takes are the
+reason the window doesn't take focus.*
 
 ## Configuration
 
