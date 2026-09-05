@@ -15,7 +15,7 @@ local state = require("pyenv.state")
 -- activate and export over it.
 session.original()
 
----Apply user configuration. Optional, but must run before anything activates —
+---Apply user configuration. Optional, but must run before anything activates -
 ---which is the case when called from a plugin spec or `init.lua`.
 ---@param opts table?
 ---@return pyenv.Config

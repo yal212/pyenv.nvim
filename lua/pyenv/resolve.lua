@@ -1,4 +1,4 @@
---- Works out which Python is active, and — just as importantly — why.
+--- Works out which Python is active, and - just as importantly - why.
 ---
 --- Every input is injected rather than read from the environment, so the whole
 --- chain is testable against fixture directories with no pyenv installed.

@@ -5,7 +5,7 @@ things about this repository that are genuinely surprising.
 
 ## Setup
 
-The test toolchain installs into `./.luarocks`, which is gitignored — nothing is
+The test toolchain installs into `./.luarocks`, which is gitignored - nothing is
 written outside the repository.
 
 ```sh
@@ -21,7 +21,7 @@ busted arguments through `BUSTED_ARGS`:
 make test BUSTED_ARGS="--filter=resolution"
 ```
 
-**No pyenv installation is needed to run the suite.** That is deliberate — see
+**No pyenv installation is needed to run the suite.** That is deliberate - see
 below.
 
 ## Why the toolchain looks unusual
@@ -32,7 +32,7 @@ Three things here will look wrong if you don't know why they are that way.
 global throughout, so the tests need Lua 5.1/LuaJIT *with Neovim's runtime
 present*. `busted --lua=nlua` re-executes busted inside Neovim to get that. If
 you have Homebrew's `busted` on your `PATH`, it runs on Lua 5.4 where `vim` does
-not exist — it is the wrong tool for this repository and the Makefile
+not exist - it is the wrong tool for this repository and the Makefile
 deliberately does not use it.
 
 **`make test` closes stdin.** The recipe ends in `< /dev/null` because `nlua`
@@ -52,16 +52,16 @@ symlink at `$PYENV_ROOT/versions/<name>`, so classification depends on genuine
 symlink behaviour that a mocked filesystem would not reproduce.
 
 Pure logic is kept separate from side effects so the core is testable with no
-pyenv installed — `resolve` and `envs` take an injected root and cwd and touch
+pyenv installed - `resolve` and `envs` take an injected root and cwd and touch
 nothing else, and `cli` takes an injectable runner so mutating commands are
 asserted on their argv without spawning anything. Please keep new code on the
 same side of that line.
 
 ## Style and linting
 
-- `stylua` over `lua plugin spec` — config in `stylua.toml` (2-space indent,
+- `stylua` over `lua plugin spec` - config in `stylua.toml` (2-space indent,
   100-column width, double quotes preferred).
-- `luacheck` over `lua plugin spec` — config in `.luacheckrc` (LuaJIT std, `vim`
+- `luacheck` over `lua plugin spec` - config in `.luacheckrc` (LuaJIT std, `vim`
   global, 120-column max).
 
 Both run in CI and both must pass.
@@ -70,16 +70,16 @@ Both run in CI and both must pass.
 
 Two jobs, in `.github/workflows/ci.yml`:
 
-- **test** — the suite against Neovim `v0.11.0`, `stable` and `nightly`.
+- **test** - the suite against Neovim `v0.11.0`, `stable` and `nightly`.
   `v0.11.0` is the floor the plugin claims, so it is tested explicitly.
-- **lint** — `stylua --check` and `luacheck`.
+- **lint** - `stylua --check` and `luacheck`.
 
 ## Documentation
 
 User-facing behaviour is documented twice, and both need to stay in step:
 
-- `README.md` — the entry point.
-- `doc/pyenv.txt` — the vimdoc, which is the reference.
+- `README.md` - the entry point.
+- `doc/pyenv.txt` - the vimdoc, which is the reference.
 
 Two rules for the vimdoc:
 
@@ -89,7 +89,7 @@ Two rules for the vimdoc:
   awk 'length > 78 {print FILENAME":"NR": "length}' doc/pyenv.txt
   ```
 - **Never write `*word*` for emphasis.** Vimdoc parses it as a *tag definition*,
-  which leaks into the user's global help namespace — this repository shipped a
+  which leaks into the user's global help namespace - this repository shipped a
   stray `global` tag that way. Every tag defined here must start with `pyenv` or
   `:Pyenv`. Check with:
   ```sh
@@ -98,7 +98,7 @@ Two rules for the vimdoc:
 
 `doc/tags` is generated and gitignored; don't commit it.
 
-The two GIFs in the README are generated too — `make demo` records them against
+The two GIFs in the README are generated too - `make demo` records them against
 a real pyenv installation rather than a fixture. Anything that changes what the
 plugin puts on screen dates them; [`demo/README.md`](demo/README.md) covers
 re-recording and what to check when you do.

@@ -258,7 +258,7 @@ end
 ---Read the interpreter a running client is actually using.
 ---
 ---This is what makes it possible to answer "did the wiring take?" rather than
----"was the wiring attempted?" — the two diverge whenever something else in the
+---"was the wiring attempted?" - the two diverge whenever something else in the
 ---user's config also sets pythonPath.
 ---@param client table
 ---@param name string

@@ -42,7 +42,7 @@ picker you already have.
 
 **Optional**
 
-- **pyenv** — only for *installing* and *removing*. Listing and switching read
+- **pyenv** - only for *installing* and *removing*. Listing and switching read
   `$PYENV_ROOT` from disk and work even when `pyenv` isn't on Neovim's `PATH`,
   which is routine for GUI launches on macOS.
 - **nvim-dap-python**, or nvim-dap on its own. Without one of them,
@@ -98,7 +98,7 @@ Plug 'yal212/pyenv.nvim'
 
 </details>
 
-`setup()` is optional — the plugin initialises itself with sensible defaults.
+`setup()` is optional - the plugin initialises itself with sensible defaults.
 Call it only to change something.
 
 ## Quick start
@@ -146,7 +146,7 @@ A few details worth knowing:
   completion primes it in the background, so the *first* `<Tab>` offers nothing
   and a later one offers versions. `--refresh` re-fetches.
 - **`uninstall`** always confirms, and the default answer is No.
-- **`activate`** is remembered per project in `stdpath("data")` — nothing is
+- **`activate`** is remembered per project in `stdpath("data")` - nothing is
   written into your repository. Use `:Pyenv local` when you actually want a
   committed `.python-version`.
 
@@ -195,7 +195,7 @@ Unknown options and wrong types are rejected with an explicit error rather than
 silently ignored. List-like tables are replaced wholesale rather than merged
 index by index, so `lsp.servers = { "pyright" }` really does mean only pyright.
 
-The per-project pin is keyed by project root — the nearest ancestor containing
+The per-project pin is keyed by project root - the nearest ancestor containing
 any of `.python-version`, `pyproject.toml`, `setup.py`, `setup.cfg`,
 `requirements.txt`, `.venv` or `.git`.
 
@@ -203,18 +203,18 @@ any of `.python-version`, `pyproject.toml`, `setup.py`, `setup.cfg`,
 
 First match wins:
 
-1. `override` — pinned with `:Pyenv activate`
-2. `shell` — `$PYENV_VERSION`
-3. `local` — nearest `.python-version`, searching upward
-4. `project_venv` — `.venv/`, `venv/`, or `$VIRTUAL_ENV`
-5. `global` — `$PYENV_ROOT/version`
-6. `system` — first python on `PATH` outside pyenv's shims
+1. `override` - pinned with `:Pyenv activate`
+2. `shell` - `$PYENV_VERSION`
+3. `local` - nearest `.python-version`, searching upward
+4. `project_venv` - `.venv/`, `venv/`, or `$VIRTUAL_ENV`
+5. `global` - `$PYENV_ROOT/version`
+6. `system` - first python on `PATH` outside pyenv's shims
 
-Shims are never used as an interpreter — `$PYENV_ROOT/shims/python` is a shell
+Shims are never used as an interpreter - `$PYENV_ROOT/shims/python` is a shell
 script that pyright can't introspect and debugpy can't exec.
 
 <details>
-<summary><b>Why this differs from pyenv itself</b> — two deliberate departures</summary>
+<summary><b>Why this differs from pyenv itself</b> - two deliberate departures</summary>
 
 <br>
 
@@ -238,7 +238,7 @@ notification, so switching environments doesn't cost you a re-index.
 
 <br>
 
-Each server was measured acting on a notification — pylsp 1.15.0, pyright
+Each server was measured acting on a notification - pylsp 1.15.0, pyright
 1.1.407 and basedpyright 1.39.10 each stopped resolving the old environment's
 packages and started resolving the new one's, on the same client, with no
 restart.
@@ -246,7 +246,7 @@ restart.
 Set `lsp.strategy = "restart"` to have them relaunched instead. That buys two
 things a notification cannot: it holds for server versions nobody has measured,
 and it starts the server under the new `$VIRTUAL_ENV` and `PATH`. The second is
-narrower than it sounds — every server started *afterwards* gets the new
+narrower than it sounds - every server started *afterwards* gets the new
 environment either way, so this only affects a server that is already running,
 and none of the three needs it today because all of them take the interpreter
 from settings. The cost is a full re-index on every switch. Restarts inside a
@@ -259,7 +259,7 @@ locating the ruff binary, not a language server setting.
 
 ### Migrating from a hand-rolled `before_init`
 
-If your LSP config picks the interpreter itself, remove it — it runs at client
+If your LSP config picks the interpreter itself, remove it - it runs at client
 init and will overwrite what this plugin sets. `:checkhealth pyenv` reports the
 conflict as an error if you forget.
 
@@ -323,7 +323,7 @@ wins.
 `:checkhealth pyenv` (or `:Pyenv health`) reports the pyenv root and how it was
 found, whether the pyenv executable and its shims are present, whether asdf or
 another environment-switching plugin (`venv-selector`, `swenv`) is competing,
-the active environment and *which file* selected it, and — the useful one — for
+the active environment and *which file* selected it, and - the useful one - for
 each running Python language server, the interpreter it is **really** using
 versus the one this plugin resolved.
 
@@ -339,7 +339,7 @@ warning rather than left as silent wrongness.
 
 | Symptom | Cause |
 |---|---|
-| My language server still uses the wrong Python | Something else is setting it — usually a `before_init` hook. `:checkhealth pyenv` names it. |
+| My language server still uses the wrong Python | Something else is setting it - usually a `before_init` hook. `:checkhealth pyenv` names it. |
 | Nothing happens when I change directory | `auto_activate` is off, or `.python-version` names a version that isn't installed. |
 | `:Pyenv install` says pyenv is required | Listing and switching read `$PYENV_ROOT` from disk; installing needs the real executable on `PATH`. |
 | The wrong version stays selected | You pinned it with `:Pyenv activate`. `:Pyenv reset` clears it. |
@@ -348,7 +348,7 @@ See `:help pyenv-troubleshooting` for the longer version.
 
 ## How this compares
 
-Existing plugins switch *between* environments that already exist —
+Existing plugins switch *between* environments that already exist -
 `venv-selector.nvim`, `venv-lsp.nvim` and `swenv.nvim` all do this well, and if
 that is all you need, they are lighter than this.
 
@@ -367,4 +367,4 @@ the design decisions.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

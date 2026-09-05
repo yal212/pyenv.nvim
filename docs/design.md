@@ -1,9 +1,9 @@
-# pyenv.nvim — design
+# pyenv.nvim - design
 
 Status: accepted, 2026-09-04
 
 > This is a design record, not user documentation. It keeps the reasoning behind
-> the architecture, including decisions that were later revised — D4 is marked
+> the architecture, including decisions that were later revised - D4 is marked
 > superseded in place rather than rewritten, because the measurement that
 > overturned it is the useful part. For current behaviour see the
 > [README](../README.md) or `:help pyenv`.
@@ -27,12 +27,12 @@ wrong Python" is one of the most common and least debuggable Neovim complaints.
 
 ## Goals
 
-1. **Auto-wire** — the active pyenv environment drives pyright/basedpyright/pylsp,
+1. **Auto-wire** - the active pyenv environment drives pyright/basedpyright/pylsp,
    nvim-dap, `:terminal`, and `:!python`, with no manual step.
-2. **Switch** — a dependency-free picker over installed versions and pyenv-virtualenvs that
+2. **Switch** - a dependency-free picker over installed versions and pyenv-virtualenvs that
    hot-swaps the LSP without restarting Neovim.
-3. **Manage** — `pyenv install` / `uninstall` / `virtualenv` from inside Neovim, async.
-4. **Explain** — `:checkhealth pyenv` answers "which Python is active, why, and did the LSP
+3. **Manage** - `pyenv install` / `uninstall` / `virtualenv` from inside Neovim, async.
+4. **Explain** - `:checkhealth pyenv` answers "which Python is active, why, and did the LSP
    actually get it?"
 
 ## Non-goals
@@ -44,19 +44,19 @@ wrong Python" is one of the most common and least debuggable Neovim complaints.
 
 ## Key decisions
 
-### D1 — Filesystem-first, subprocess only for mutations
+### D1 - Filesystem-first, subprocess only for mutations
 
 Queries (which version is active, which are installed) are pure filesystem reads of
 `$PYENV_ROOT`. The `pyenv` binary is invoked only for state-changing operations.
 
-*Why:* `pyenv versions` costs a bash spawn plus a rehash — 50-150ms, on a `DirChanged` hot
+*Why:* `pyenv versions` costs a bash spawn plus a rehash - 50-150ms, on a `DirChanged` hot
 path. A directory read is ~1ms. More importantly, GUI-launched Neovim on macOS frequently has
 no `pyenv` on `PATH` at all, and a subprocess-based design is simply broken there, while a
 filesystem-based one works fine.
 
 *Cost:* we reimplement pyenv's resolution rules. Mitigated by D6.
 
-### D2 — Resolution order diverges from pyenv, deliberately
+### D2 - Resolution order diverges from pyenv, deliberately
 
 ```
 override → shell (PYENV_VERSION) → local (.python-version) → project venv → global → system
@@ -67,13 +67,13 @@ project-local `.venv`/`venv` *above* the global pyenv version because a global v
 machine-wide default while a `.venv` is project-scoped. `.python-version` still beats both, so
 an explicit pyenv declaration always wins. Configurable via `resolution_order`.
 
-### D3 — Never hand out a shim path
+### D3 - Never hand out a shim path
 
 `$PYENV_ROOT/shims/python` is a bash script. Pyright cannot introspect it, and debugpy cannot
 exec it as an adapter host. Resolution always terminates at a real
 `$PYENV_ROOT/versions/<v>/bin/python`.
 
-### D4 — Restart LSP clients; don't rely on `didChangeConfiguration` *(superseded — see below)*
+### D4 - Restart LSP clients; don't rely on `didChangeConfiguration` *(superseded - see below)*
 
 `vim.lsp.config(name, cfg)` sits at the highest merge priority (`:h lsp-config-merge`), so
 writing there fixes all *future* client starts. Running clients need more: pyright does not
@@ -88,7 +88,7 @@ Restarts are **coalesced** behind a short timer so a burst of `DirChanged` event
 restart, not five.
 
 > **Measured 2026-09-05 (#3, #4).** The premise above is wrong for current versions: pyright
-> 1.1.407 and basedpyright 1.39.10 both *do* act on `workspace/didChangeConfiguration` — driven
+> 1.1.407 and basedpyright 1.39.10 both *do* act on `workspace/didChangeConfiguration` - driven
 > through the notify path alone, a running client stopped resolving the old environment's
 > packages and started resolving the new one's, with no restart. The restart is kept anyway,
 > because it also relaunches the server under the new `cmd_env` and holds for versions that have
@@ -101,18 +101,18 @@ restart, not five.
 >
 > On `cmd_env`, the one thing a notification genuinely cannot carry: `vim.lsp.config()` hands it
 > to every *future* client under either strategy, so only a client that is **already running**
-> keeps the environment it was spawned with. No supported server needs that today — pyright,
-> basedpyright and pylsp all take the interpreter from settings — so `"notify"` is complete in
+> keeps the environment it was spawned with. No supported server needs that today - pyright,
+> basedpyright and pylsp all take the interpreter from settings - so `"notify"` is complete in
 > practice. `"restart"` is the answer for a server that ever does need it, and for versions
 > nobody has measured.
 
-### D5 — Per-project cache, never write to the user's repo
+### D5 - Per-project cache, never write to the user's repo
 
 A manual pick is remembered in `stdpath("data")` keyed by project root. Writing
-`.python-version` is a separate, explicit `:Pyenv local` — creating a tracked file in
+`.python-version` is a separate, explicit `:Pyenv local` - creating a tracked file in
 someone's repo as a side effect of picking from a menu is a surprise, not a feature.
 
-### D6 — Health check cross-verifies against the real pyenv
+### D6 - Health check cross-verifies against the real pyenv
 
 Because D1 means we reimplement resolution, `:checkhealth pyenv` compares our answer to
 `pyenv version-name` whenever the binary exists. A divergence surfaces as a warning rather
@@ -150,7 +150,7 @@ Pure logic is separated from side effects so the core is testable with no pyenv 
 Tests run under Lua 5.1/LuaJIT inside Neovim (busted re-executed via `nlua`), because the
 system busted runs on Lua 5.4 where the `vim` global does not exist.
 
-Fixtures build **real** temporary directory trees — including real symlinks — so virtualenv
+Fixtures build **real** temporary directory trees - including real symlinks - so virtualenv
 classification is exercised rather than mocked. `cli` takes an injectable runner so mutation
 commands are asserted on argv without spawning anything.
 

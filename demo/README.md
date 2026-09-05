@@ -1,7 +1,7 @@
 # Recording the README GIFs
 
 Both GIFs in the README are recorded with [VHS][vhs] against a **real** pyenv
-installation — real CPython builds, real pyenv-virtualenvs, a real `.venv`.
+installation - real CPython builds, real pyenv-virtualenvs, a real `.venv`.
 Nothing here stubs an interpreter, because the whole point of the recordings is
 the resolution output, and resolution that is only true of a fixture would be
 worth nothing.
@@ -17,9 +17,9 @@ that is cheap: `demo/setup.sh` is idempotent and skips what already exists.
 | File | |
 |---|---|
 | `setup.sh` | Builds the demo world under `/tmp/pyenv-demo` |
-| `init.lua` | The Neovim config being recorded — no plugin dependencies |
-| `tour.tape` | `assets/demo.gif` — resolution, switching, auto-activation |
-| `install.tape` | `demo/out/install.mp4` — a genuine `pyenv install` |
+| `init.lua` | The Neovim config being recorded - no plugin dependencies |
+| `tour.tape` | `assets/demo.gif` - resolution, switching, auto-activation |
+| `install.tape` | `demo/out/install.mp4` - a genuine `pyenv install` |
 | `compress.sh` | Time-compresses that mp4 into `assets/install.gif` |
 
 ## The demo world
@@ -52,7 +52,7 @@ The build takes minutes and how many is not reproducible, so:
 
 - the tape waits on the plugin's own `pyenv.nvim: installed <version>` notice
   (`Wait+Screen`) rather than guessing a `Sleep`;
-- `compress.sh` measures the recording's ends rather than absolute timestamps —
+- `compress.sh` measures the recording's ends rather than absolute timestamps -
   the first 6s and last 10s play untouched, and the compile scroll between them
   is squeezed to about 5s whether the build ran for four minutes or twelve.
 
@@ -61,8 +61,8 @@ so next to the image.
 
 ## Re-recording after a UI change
 
-Anything that changes what the plugin puts on screen — the wording of
-`:Pyenv status`, the picker labels, the progress window — dates these GIFs. Run
+Anything that changes what the plugin puts on screen - the wording of
+`:Pyenv status`, the picker labels, the progress window - dates these GIFs. Run
 `make demo` and commit the result.
 
 Two things to check when you do:
