@@ -1,0 +1,33 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+Nothing has been released yet. Changes accumulate here until the first tagged
+version.
+
+### Fixed
+
+- `doc/pyenv.txt` no longer defines a stray `global` help tag. Vimdoc parses
+  `*word*` as a tag definition rather than as emphasis, so the plugin was
+  claiming `:help global` in Neovim's shared help namespace.
+
+### Changed
+
+- README reorganised around reference material: full command table, complete
+  Lua API, configuration option table, and installation instructions for
+  rocks.nvim, mini.deps, packer and vim-plug alongside lazy.nvim.
+- The design document moved from `docs/superpowers/specs/` to `docs/design.md`.
+
+### Added
+
+- `CONTRIBUTING.md`, covering the `nlua` test toolchain and the vimdoc rules.
+- Vimdoc now documents `require("pyenv").setup()`, the `pyenv.Resolution` and
+  `pyenv.Env` type shapes, the per-project cache location, and the optional
+  nvim-dap / `vim.ui.select` / lualine integrations.
+
+[Unreleased]: https://github.com/yal212/pyenv.nvim/commits/main

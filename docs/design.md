@@ -2,6 +2,12 @@
 
 Status: accepted, 2026-09-04
 
+> This is a design record, not user documentation. It keeps the reasoning behind
+> the architecture, including decisions that were later revised — D4 is marked
+> superseded in place rather than rewritten, because the measurement that
+> overturned it is the useful part. For current behaviour see the
+> [README](../README.md) or `:help pyenv`.
+
 ## Problem
 
 pyenv is a first-class tool for most Python developers and a second-class citizen in Neovim.
@@ -21,7 +27,7 @@ wrong Python" is one of the most common and least debuggable Neovim complaints.
 
 ## Goals
 
-1. **Auto-wire** — the active pyenv environment drives pyright/basedpyright/pylsp/ruff,
+1. **Auto-wire** — the active pyenv environment drives pyright/basedpyright/pylsp,
    nvim-dap, `:terminal`, and `:!python`, with no manual step.
 2. **Switch** — a dependency-free picker over installed versions and pyenv-virtualenvs that
    hot-swaps the LSP without restarting Neovim.
