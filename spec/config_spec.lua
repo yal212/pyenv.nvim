@@ -57,6 +57,23 @@ describe("pyenv.config", function()
     end, "pyenv.nvim: unknown resolution step 'bogus'")
   end)
 
+  it("defaults to updating a running server in place", function()
+    assert.equals("notify", config.get().lsp.strategy)
+  end)
+
+  it("accepts the restart strategy", function()
+    config.setup({ lsp = { strategy = "restart" } })
+    assert.equals("restart", config.get().lsp.strategy)
+  end)
+
+  it("rejects an unknown lsp strategy", function()
+    -- Falling through to the default would leave a running server pointed at
+    -- the old interpreter with nothing said about it.
+    assert.has_error(function()
+      config.setup({ lsp = { strategy = "reboot" } })
+    end, "pyenv.nvim: unknown lsp strategy 'reboot'")
+  end)
+
   it("allows nil for options that default to nil", function()
     assert.has_no.errors(function()
       config.setup({ root = "/opt/pyenv" })

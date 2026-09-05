@@ -115,6 +115,8 @@ describe("pyenv.integrations.lsp", function()
   describe("refusing to wire a broken environment", function()
     it("does nothing when the version is not installed", function()
       local before = vim.deepcopy(vim.lsp.config.pyright or {})
+      local client = fake_client("pyright")
+      clients = { client }
       lsp.apply(
         resolution("/pyenv/versions/3.13.0/bin/python", { missing = true }),
         { servers = { "pyright" } },
@@ -122,12 +124,15 @@ describe("pyenv.integrations.lsp", function()
       )
       assert.same(before.settings, (vim.lsp.config.pyright or {}).settings)
       assert.same({}, restarted)
+      assert.same({}, client.notified)
     end)
 
     it("does nothing when there is no interpreter at all", function()
-      clients = { fake_client("pyright") }
+      local client = fake_client("pyright")
+      clients = { client }
       lsp.apply(resolution(nil, { kind = "system" }), { servers = { "pyright" } }, deps())
       assert.same({}, restarted)
+      assert.same({}, client.notified)
     end)
   end)
 
@@ -150,26 +155,85 @@ describe("pyenv.integrations.lsp", function()
       assert.is_nil(restarted.pylsp)
     end)
 
-    it("restarts pyright rather than notifying it", function()
-      clients = { fake_client("pyright") }
+    it("notifies pyright rather than restarting it", function()
+      -- Measured against pyright 1.1.407: a running client acts on the
+      -- notification, so the default no longer pays for a full re-index.
+      local client = fake_client("pyright")
+      clients = { client }
 
       lsp.apply(resolution("/x/bin/python"), { servers = { "pyright" } }, deps())
+      vim.wait(200, function()
+        return #client.notified > 0
+      end)
+
+      assert.equals(1, #client.notified)
+      assert.equals("workspace/didChangeConfiguration", client.notified[1].method)
+      assert.equals("/x/bin/python", client.notified[1].params.settings.python.pythonPath)
+      assert.is_nil(restarted.pyright)
+    end)
+
+    it("notifies basedpyright too", function()
+      -- Same measurement, basedpyright 1.39.10.
+      local client = fake_client("basedpyright")
+      clients = { client }
+
+      lsp.apply(resolution("/x/bin/python"), { servers = { "basedpyright" } }, deps())
+      vim.wait(200, function()
+        return #client.notified > 0
+      end)
+
+      assert.equals(1, #client.notified)
+      assert.equals("/x/bin/python", client.notified[1].params.settings.python.pythonPath)
+      assert.is_nil(restarted.basedpyright)
+    end)
+
+    it("leaves the interpreter readable on the client it just notified", function()
+      -- :checkhealth reads the interpreter back off the running client, so the
+      -- notification has to update client.settings, not merely be sent.
+      local client = fake_client("pyright")
+      clients = { client }
+
+      lsp.apply(resolution("/x/bin/python"), { servers = { "pyright" } }, deps())
+
+      assert.equals("/x/bin/python", lsp.client_interpreter(client, "pyright"))
+    end)
+  end)
+
+  describe("the restart strategy", function()
+    it("restarts pyright when it is asked for, rather than notifying", function()
+      local client = fake_client("pyright")
+      clients = { client }
+
+      lsp.apply(
+        resolution("/x/bin/python"),
+        { servers = { "pyright" }, strategy = "restart" },
+        deps()
+      )
       vim.wait(300, function()
         return restarted.pyright ~= nil
       end)
 
       assert.equals(1, restarted.pyright)
+      assert.same({}, client.notified)
     end)
 
-    it("restarts basedpyright too", function()
-      clients = { fake_client("basedpyright") }
+    it("applies to pylsp as well, because the choice is the user's, not the server's", function()
+      -- Someone who asks for a restart wants the server relaunched under the
+      -- new environment. That reasoning does not stop at pyright.
+      local client = fake_client("pylsp")
+      clients = { client }
 
-      lsp.apply(resolution("/x/bin/python"), { servers = { "basedpyright" } }, deps())
+      lsp.apply(
+        resolution("/x/bin/python"),
+        { servers = { "pylsp" }, strategy = "restart" },
+        deps()
+      )
       vim.wait(300, function()
-        return restarted.basedpyright ~= nil
+        return restarted.pylsp ~= nil
       end)
 
-      assert.equals(1, restarted.basedpyright)
+      assert.equals(1, restarted.pylsp)
+      assert.same({}, client.notified)
     end)
 
     it("coalesces a burst of switches into a single restart", function()
@@ -177,7 +241,7 @@ describe("pyenv.integrations.lsp", function()
       clients = { fake_client("pyright") }
 
       for _, p in ipairs({ "/a/bin/python", "/b/bin/python", "/c/bin/python" }) do
-        lsp.apply(resolution(p), { servers = { "pyright" } }, deps())
+        lsp.apply(resolution(p), { servers = { "pyright" }, strategy = "restart" }, deps())
       end
       vim.wait(300, function()
         return restarted.pyright ~= nil
@@ -191,7 +255,11 @@ describe("pyenv.integrations.lsp", function()
 
     it("does not restart a server that has no running client", function()
       clients = {}
-      lsp.apply(resolution("/x/bin/python"), { servers = { "pyright" } }, deps())
+      lsp.apply(
+        resolution("/x/bin/python"),
+        { servers = { "pyright" }, strategy = "restart" },
+        deps()
+      )
       vim.wait(200)
       assert.is_nil(restarted.pyright)
     end)

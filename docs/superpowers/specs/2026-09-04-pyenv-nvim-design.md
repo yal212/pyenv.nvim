@@ -67,7 +67,7 @@ an explicit pyenv declaration always wins. Configurable via `resolution_order`.
 exec it as an adapter host. Resolution always terminates at a real
 `$PYENV_ROOT/versions/<v>/bin/python`.
 
-### D4 — Restart LSP clients; don't rely on `didChangeConfiguration`
+### D4 — Restart LSP clients; don't rely on `didChangeConfiguration` *(superseded — see below)*
 
 `vim.lsp.config(name, cfg)` sits at the highest merge priority (`:h lsp-config-merge`), so
 writing there fixes all *future* client starts. Running clients need more: pyright does not
@@ -82,11 +82,23 @@ Restarts are **coalesced** behind a short timer so a burst of `DirChanged` event
 restart, not five.
 
 > **Measured 2026-09-05 (#3, #4).** The premise above is wrong for current versions: pyright
-> 1.1.412 and basedpyright 1.39.10 both *do* act on `workspace/didChangeConfiguration` — driven
+> 1.1.407 and basedpyright 1.39.10 both *do* act on `workspace/didChangeConfiguration` — driven
 > through the notify path alone, a running client stopped resolving the old environment's
 > packages and started resolving the new one's, with no restart. The restart is kept anyway,
 > because it also relaunches the server under the new `cmd_env` and holds for versions that have
 > not been measured, but it is no longer justified by the servers being unable to reload.
+
+> **Decided 2026-09-05 (#18).** The restart is no longer the default. With the premise gone,
+> the mechanism is a user preference rather than a property of the server: `lsp.strategy`
+> selects it and defaults to `"notify"`. The restart machinery above is unchanged and stays
+> reachable through `lsp.strategy = "restart"`.
+>
+> On `cmd_env`, the one thing a notification genuinely cannot carry: `vim.lsp.config()` hands it
+> to every *future* client under either strategy, so only a client that is **already running**
+> keeps the environment it was spawned with. No supported server needs that today — pyright,
+> basedpyright and pylsp all take the interpreter from settings — so `"notify"` is complete in
+> practice. `"restart"` is the answer for a server that ever does need it, and for versions
+> nobody has measured.
 
 ### D5 — Per-project cache, never write to the user's repo
 

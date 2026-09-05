@@ -87,7 +87,11 @@ require("pyenv").setup({
   root = nil,                 -- override $PYENV_ROOT
   auto_activate = true,       -- re-resolve on VimEnter and DirChanged
   resolution_order = { "override", "shell", "local", "project_venv", "global", "system" },
-  lsp = { enabled = true, servers = { "pyright", "basedpyright", "pylsp" } },
+  lsp = {
+    enabled = true,
+    servers = { "pyright", "basedpyright", "pylsp" },
+    strategy = "notify",      -- "notify" | "restart"
+  },
   dap = { enabled = true },
   terminal = { set_path = true, set_virtual_env = true },
   python3_host_prog = false,  -- an env without pynvim breaks remote plugins
@@ -104,12 +108,19 @@ committed `.python-version`.
 
 ### Language servers
 
-pylsp is **updated in place** with a `didChangeConfiguration` notification.
-pyright and basedpyright are **restarted**: a notification carries settings and
-nothing else, while a restart also relaunches the server under the new
-environment, and it holds for server versions that ignore the notification.
-Restarts inside a short window are coalesced so rapid directory changes don't
-thrash the server.
+All three servers are **updated in place** with a `didChangeConfiguration`
+notification. Each was measured acting on one — pylsp 1.15.0, pyright 1.1.407
+and basedpyright 1.39.10 each stopped resolving the old environment's packages
+and started resolving the new one's, on the same client, with no restart.
+
+Set `lsp.strategy = "restart"` to have them relaunched instead. That buys two
+things a notification cannot: it holds for server versions nobody has measured,
+and it starts the server under the new `$VIRTUAL_ENV` and `PATH`. The second is
+narrower than it sounds — every server started *afterwards* gets the new
+environment either way, so this only affects a server that is already running,
+and none of the three needs it today because all of them take the interpreter
+from settings. The cost is a full re-index on every switch. Restarts inside a
+short window are coalesced so rapid directory changes don't thrash the server.
 
 ruff isn't supported: its `interpreter` setting is a VS Code extension option
 for locating the ruff binary, not a language server setting.
