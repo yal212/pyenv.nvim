@@ -58,6 +58,19 @@ local function make_prefix(prefix, version)
   write_python_stub(prefix .. "/bin/python3", version)
 end
 
+---Write an executable `pyenv` stub into `dir` and hand back the directory, so a
+---test can put a *real* discoverable binary on PATH. Needed to prove that an
+---injected "there is no pyenv" wins over the lookup on a machine that has one.
+---@param dir string?
+---@return string dir, string binary
+function M.pyenv_binary(dir)
+  dir = dir or M.tmpdir("pyenv-bin")
+  local binary = dir .. "/pyenv"
+  write(binary, "#!/bin/sh\necho 'pyenv 2.4.0'\n")
+  assert(uv.fs_chmod(binary, tonumber("755", 8)))
+  return dir, binary
+end
+
 ---@class fixtures.PyenvRootOpts
 ---@field versions string[]?                  plain installed versions, e.g. { "3.12.4" }
 ---@field virtualenvs table<string,string[]>? map of python version -> virtualenv names

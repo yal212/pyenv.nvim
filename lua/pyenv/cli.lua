@@ -10,8 +10,8 @@ local config = require("pyenv.config")
 local root_mod = require("pyenv.root")
 
 ---@class pyenv.CliDeps
----@field system fun(cmd: string[], opts: table, on_exit: fun(obj: table)): table
----@field binary string?
+---@field system fun(cmd: string[], opts: table, on_exit: fun(obj: table)): table|false
+---@field binary string|false? `false` means "no pyenv here", as against nil for "not injected"
 
 ---@class pyenv.CliOpts
 ---@field on_output fun(line: string)?  called per line of combined output
@@ -69,7 +69,15 @@ function M.run(args, opts, deps)
   deps = deps or {}
 
   local root, located = locate()
-  local binary = deps.binary or located
+  -- `or` is wrong for an injection seam: the specs pass `false` to mean "this
+  -- machine has no pyenv", and `false or located` hands back the real lookup --
+  -- so the branch below went untested everywhere and, on a machine that does
+  -- have pyenv, spawned it for real. Absent has to be distinguishable from
+  -- not injected.
+  local binary = deps.binary
+  if binary == nil then
+    binary = located
+  end
   if not binary then
     vim.notify(
       "pyenv.nvim: the pyenv executable is required for this command.\n"
@@ -79,7 +87,10 @@ function M.run(args, opts, deps)
     return nil
   end
 
-  local system = deps.system or vim.system
+  local system = deps.system
+  if system == nil then
+    system = vim.system
+  end
 
   -- One reader per stream, sharing nothing. libuv delivers the two pipes
   -- independently, so a single buffer would splice a whole line from one into
