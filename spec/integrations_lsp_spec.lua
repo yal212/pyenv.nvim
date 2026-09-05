@@ -59,6 +59,22 @@ describe("pyenv.integrations.lsp", function()
       assert.equals("/pyenv/versions/3.12.4/bin/python", cfg.settings.python.pythonPath)
     end)
 
+    it("writes pythonPath for basedpyright, exactly as for pyright", function()
+      -- basedpyright is a pyright fork and is configured identically. Verified
+      -- against basedpyright 1.39.10: switching environments updates
+      -- `settings.python.pythonPath` on the running client, and the server then
+      -- resolves imports from the new interpreter's site-packages.
+      lsp.apply(
+        resolution("/pyenv/versions/3.12.4/bin/python"),
+        { servers = { "basedpyright" } },
+        deps()
+      )
+
+      local cfg = vim.lsp.config.basedpyright
+      assert.equals("/pyenv/versions/3.12.4/bin/python", cfg.settings.python.pythonPath)
+      assert.same(lsp.SERVERS.pyright, lsp.SERVERS.basedpyright)
+    end)
+
     it("writes jedi.environment for pylsp", function()
       lsp.apply(resolution("/pyenv/versions/3.12.4/bin/python"), { servers = { "pylsp" } }, deps())
 
@@ -134,7 +150,7 @@ describe("pyenv.integrations.lsp", function()
       assert.is_nil(restarted.pylsp)
     end)
 
-    it("restarts pyright, which does not reliably reload pythonPath", function()
+    it("restarts pyright rather than notifying it", function()
       clients = { fake_client("pyright") }
 
       lsp.apply(resolution("/x/bin/python"), { servers = { "pyright" } }, deps())
@@ -143,6 +159,17 @@ describe("pyenv.integrations.lsp", function()
       end)
 
       assert.equals(1, restarted.pyright)
+    end)
+
+    it("restarts basedpyright too", function()
+      clients = { fake_client("basedpyright") }
+
+      lsp.apply(resolution("/x/bin/python"), { servers = { "basedpyright" } }, deps())
+      vim.wait(300, function()
+        return restarted.basedpyright ~= nil
+      end)
+
+      assert.equals(1, restarted.basedpyright)
     end)
 
     it("coalesces a burst of switches into a single restart", function()

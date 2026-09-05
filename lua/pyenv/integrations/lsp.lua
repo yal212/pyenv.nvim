@@ -15,9 +15,17 @@ M.RESTART_DELAY_MS = 50
 --- Where each server wants the interpreter path, and how it copes with being
 --- told about a new one.
 ---
---- pyright and basedpyright do not reliably reload `python.pythonPath` from a
---- `workspace/didChangeConfiguration` notification, so they are restarted.
---- pylsp honours the notification and can be updated in place.
+--- pylsp is updated in place with a `workspace/didChangeConfiguration`
+--- notification. It re-reads `environment` on every request, so the very next
+--- completion resolves against the new interpreter.
+---
+--- pyright and basedpyright are restarted instead. Both were measured to act on
+--- the notification too (pyright 1.1.412, basedpyright 1.39.10), so the restart
+--- is not there to work around a server that ignores it. It is there because a
+--- notification carries settings and nothing else, whereas a restart also
+--- relaunches the server under the new `cmd_env` -- and because it holds for
+--- versions that have not been measured. Switching environments is rare enough
+--- that the re-index is affordable.
 ---
 --- ruff is deliberately absent: its `interpreter` setting is a VS Code
 --- extension option used to locate the ruff binary, not a language server

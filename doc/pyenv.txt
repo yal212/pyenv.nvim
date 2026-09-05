@@ -193,11 +193,12 @@ Unknown options and wrong types are rejected with an explicit error rather than
 being silently ignored.
 
                                                           *pyenv-lsp-servers*
-`lsp.servers` names the servers to reconfigure. pyright and basedpyright are
-restarted, because they do not reliably reload `python.pythonPath` from a
-`workspace/didChangeConfiguration` notification; pylsp is updated in place.
-Restarts within a short window are coalesced, so changing directory rapidly
-does not thrash the server.
+`lsp.servers` names the servers to reconfigure. pylsp is updated in place with
+a `workspace/didChangeConfiguration` notification. pyright and basedpyright are
+restarted: a notification carries settings and nothing else, while a restart
+also relaunches the server under the new environment, and it holds for server
+versions that ignore the notification. Restarts within a short window are
+coalesced, so changing directory rapidly does not thrash the server.
 
 ruff is not supported. Its `interpreter` setting is a VS Code extension option
 used to locate the ruff binary, not a language server setting, so there is
