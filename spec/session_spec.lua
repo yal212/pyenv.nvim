@@ -19,10 +19,12 @@ describe("pyenv.session", function()
       PATH = vim.env.PATH,
       PYENV_VERSION = vim.env.PYENV_VERSION,
       VIRTUAL_ENV = vim.env.VIRTUAL_ENV,
+      host_prog = vim.g.python3_host_prog,
     }
     vim.env.PATH = "/usr/bin:/bin"
     vim.env.PYENV_VERSION = nil
     vim.env.VIRTUAL_ENV = nil
+    vim.g.python3_host_prog = nil
     session.forget()
   end)
 
@@ -31,6 +33,7 @@ describe("pyenv.session", function()
     vim.env.PATH = saved.PATH
     vim.env.PYENV_VERSION = saved.PYENV_VERSION
     vim.env.VIRTUAL_ENV = saved.VIRTUAL_ENV
+    vim.g.python3_host_prog = saved.host_prog
   end)
 
   describe("original", function()
@@ -48,6 +51,21 @@ describe("pyenv.session", function()
       local original = session.original()
       assert.is_nil(original.version)
       assert.is_nil(original.virtual_env)
+      assert.is_nil(original.host_prog)
+    end)
+
+    it("captures g:python3_host_prog, which the plugin overwrites", function()
+      -- Nothing resolves from the Python host; it is snapshotted so that an
+      -- environment going away puts the user's own value back rather than
+      -- clearing the variable outright (#22). Same rules as the rest of the
+      -- snapshot: taken once, and inherited by a reloaded instance.
+      vim.g.python3_host_prog = "/usr/bin/python3"
+      session.forget()
+      assert.equals("/usr/bin/python3", session.original().host_prog)
+
+      vim.g.python3_host_prog = "/pyenv/versions/3.12.4/bin/python"
+      assert.equals("/usr/bin/python3", session.original().host_prog)
+      assert.equals("/usr/bin/python3", reloaded().original().host_prog)
     end)
 
     it("is not re-taken once the plugin has exported its own values", function()

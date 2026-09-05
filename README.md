@@ -186,7 +186,7 @@ require("pyenv").setup({
 | `dap.enabled` | `boolean` | `true` | No-op without nvim-dap(-python) |
 | `terminal.set_path` | `boolean` | `true` | Prepend `<env>/bin` to `PATH` |
 | `terminal.set_virtual_env` | `boolean` | `true` | Export `VIRTUAL_ENV` for virtualenvs |
-| `python3_host_prog` | `boolean` | `false` | Point `g:python3_host_prog` at the env |
+| `python3_host_prog` | `boolean` | `false` | Point `g:python3_host_prog` at the env; reverted when it stops being usable |
 | `notify` | `"all"`, `"changes"`, `"errors"`, `false` | `"changes"` | |
 | `cache.enabled` | `boolean` | `true` | Remember the pin per project |
 | `cache.path` | `string?` | `nil` | Defaults to `stdpath("data")/pyenv.nvim/projects.json` |

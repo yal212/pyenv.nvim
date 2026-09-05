@@ -127,8 +127,16 @@ function M.activate(opts)
   if cfg.dap.enabled then
     require("pyenv.integrations.dap").apply(resolution)
   end
-  if cfg.python3_host_prog and resolution.python and not resolution.missing then
-    vim.g.python3_host_prog = resolution.python
+  if cfg.python3_host_prog then
+    -- Cleared when the environment is unusable, not merely left alone. PATH,
+    -- PYENV_VERSION and VIRTUAL_ENV are all reverted at this point, so leaving
+    -- the previous project's interpreter in place would split the editor in
+    -- two: the environment saying nothing is active while remote plugins keep
+    -- running against an environment nothing else agrees on. What goes back is
+    -- the value from before the plugin loaded, the way PATH subtracts only the
+    -- entry this plugin added rather than flattening what was already there.
+    local usable = resolution.python and not resolution.missing
+    vim.g.python3_host_prog = usable and resolution.python or session.original().host_prog
   end
 
   announce(resolution, previous, cfg, opts.notify or vim.notify)
