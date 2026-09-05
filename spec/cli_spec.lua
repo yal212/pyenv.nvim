@@ -20,12 +20,13 @@ describe("pyenv.cli", function()
   local saved_env
 
   before_each(function()
-    saved_env = { HOME = vim.env.HOME, PYENV_ROOT = vim.env.PYENV_ROOT }
+    saved_env = { HOME = vim.env.HOME, PATH = vim.env.PATH, PYENV_ROOT = vim.env.PYENV_ROOT }
   end)
 
   after_each(function()
     config.reset()
     vim.env.HOME = saved_env.HOME
+    vim.env.PATH = saved_env.PATH
     vim.env.PYENV_ROOT = saved_env.PYENV_ROOT
     fx.cleanup()
   end)
@@ -87,18 +88,39 @@ describe("pyenv.cli", function()
     end)
 
     it("refuses to run without the pyenv binary", function()
+      -- Regression guard for #24. A real, discoverable pyenv goes on PATH first,
+      -- because the bug was that `binary = false` fell through to the lookup:
+      -- the assertion below used to pass only on machines that happened to have
+      -- no pyenv, and spawned `pyenv rehash` for real on the ones that did.
+      local captured = {}
+      vim.env.PATH = fx.pyenv_binary()
+      assert.is_truthy(cli.binary())
+
       local notified
       local saved = vim.notify
       vim.notify = function(msg, level)
         notified = { msg = msg, level = level }
       end
 
-      local handle = cli.run({ "rehash" }, {}, { binary = false })
+      local handle = cli.run({ "rehash" }, {}, { system = fake_system(captured), binary = false })
       vim.notify = saved
 
       assert.is_nil(handle)
+      assert.is_nil(captured.cmd) -- nothing was spawned, real or fake
       assert.equals(vim.log.levels.ERROR, notified.level)
       assert.is_truthy(notified.msg:match("checkhealth pyenv"))
+    end)
+
+    it("never falls back to the real spawner once one has been injected", function()
+      -- The `system` seam has the shape `binary` had: with `or`, injecting
+      -- `false` quietly hands back vim.system and the command runs for real.
+      -- `/bin/echo` stands in for a binary that genuinely would run, so this
+      -- fails on the fallback rather than on a missing executable. Erroring is
+      -- the wanted outcome: a caller that asked for no spawner must not be
+      -- handed the real one.
+      local ok, err = pcall(cli.run, { "rehash" }, {}, { system = false, binary = "/bin/echo" })
+      assert.is_false(ok)
+      assert.is_truthy(tostring(err):match("boolean"))
     end)
 
     it("reassembles whole lines from arbitrary stream chunks", function()

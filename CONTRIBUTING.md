@@ -21,8 +21,10 @@ busted arguments through `BUSTED_ARGS`:
 make test BUSTED_ARGS="--filter=resolution"
 ```
 
-**No pyenv installation is needed to run the suite.** That is deliberate - see
-below.
+**The suite passes with or without pyenv installed**, and needs neither. That
+is deliberate - see below. It held in one direction only until #24: a real
+pyenv on `PATH` used to win over a test's injected "there is no pyenv", so the
+suite was red for exactly the contributors most likely to be working on it.
 
 ## Why the toolchain looks unusual
 

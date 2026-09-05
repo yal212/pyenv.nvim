@@ -12,6 +12,10 @@ version.
 
 ### Fixed
 
+- The test suite passes on machines that have pyenv installed. `cli.run` read
+  its injected `binary` seam with `or`, so a spec injecting `false` for "there
+  is no pyenv" got the real lookup instead - and on a machine with pyenv, ran
+  it. CI never caught it: GitHub runners have no pyenv.
 - `doc/pyenv.txt` no longer defines a stray `global` help tag. Vimdoc parses
   `*word*` as a tag definition rather than as emphasis, so the plugin was
   claiming `:help global` in Neovim's shared help namespace.
