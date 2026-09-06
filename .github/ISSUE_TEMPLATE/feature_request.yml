@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest something pyenv.nvim should be able to do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: |
+        What are you trying to do that pyenv.nvim makes hard or impossible?
+        Describe the situation rather than the solution - it often turns out
+        there is a better fix than the one that first comes to mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: Existing options, other plugins, or workarounds, and why they fall short.
+    validations:
+      required: false

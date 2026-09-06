@@ -7,39 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing has been released yet. Changes accumulate here until the first tagged
-version.
+## [1.0.0] - 2026-09-06
 
-### Fixed
-
-- `notify` is checked by value, not only by type. A misspelling no longer falls
-  through to the noisiest setting - most importantly `notify = "false"`, the
-  string rather than the boolean, which asked for silence and produced a
-  notification on every resolution. `notify = true` is accepted as `"all"`.
-- `g:python3_host_prog` is reverted when the environment stops being usable,
-  instead of being left pointing at the previous project's interpreter while
-  `PATH`, `$PYENV_VERSION` and `$VIRTUAL_ENV` have all released it. A value the
-  user set before the plugin loaded is restored rather than cleared.
-- The test suite passes on machines that have pyenv installed. `cli.run` read
-  its injected `binary` seam with `or`, so a spec injecting `false` for "there
-  is no pyenv" got the real lookup instead - and on a machine with pyenv, ran
-  it. CI never caught it: GitHub runners have no pyenv.
-- `doc/pyenv.txt` no longer defines a stray `global` help tag. Vimdoc parses
-  `*word*` as a tag definition rather than as emphasis, so the plugin was
-  claiming `:help global` in Neovim's shared help namespace.
-
-### Changed
-
-- README reorganised around reference material: full command table, complete
-  Lua API, configuration option table, and installation instructions for
-  rocks.nvim, mini.deps, packer and vim-plug alongside lazy.nvim.
-- The design document moved from `docs/superpowers/specs/` to `docs/design.md`.
+First public release.
 
 ### Added
 
-- `CONTRIBUTING.md`, covering the `nlua` test toolchain and the vimdoc rules.
-- Vimdoc now documents `require("pyenv").setup()`, the `pyenv.Resolution` and
-  `pyenv.Env` type shapes, the per-project cache location, and the optional
-  nvim-dap / `vim.ui.select` / lualine integrations.
+- **Resolution that follows pyenv's own rules.** The active environment is
+  worked out from `:Pyenv activate` pins, `$PYENV_VERSION`, the nearest
+  `.python-version`, a project `.venv`/`venv`/`$VIRTUAL_ENV`, the pyenv global
+  version, and finally system Python - in that order, reordered or trimmed
+  through `resolution_order`. Shims are never handed out as an interpreter.
+- **The reason is reported, not just the answer.** Every resolution carries the
+  step that decided it and the file that did so, which `:Pyenv status`, the
+  statusline and `:checkhealth pyenv` all surface. A version that is named but
+  not installed is reported as missing rather than silently replaced with
+  system Python.
+- **Language servers are updated in place.** pyright, basedpyright and pylsp are
+  reconfigured with a `didChangeConfiguration` notification, so switching
+  environments costs no re-index. `lsp.strategy = "restart"` relaunches them
+  instead.
+- **nvim-dap and terminals** follow the active environment: debugpy is pointed
+  at the interpreter, and `PATH` and `$VIRTUAL_ENV` are exported to `:terminal`.
+  `g:python3_host_prog` can opt in, and is reverted when the environment stops
+  being usable.
+- **`:Pyenv`**, one command with completion for its subcommands and their
+  arguments: `status`, `select`, `activate`, `reset`, `local`, `global`,
+  `install`, `uninstall`, `virtualenv`, `rehash` and `health`. `install`
+  streams a real build into a floating window that never steals focus and can
+  be cancelled; `uninstall` always confirms, defaulting to No.
+- **Per-project pins** stored under `stdpath("data")` - nothing is written into
+  your repository unless you ask for it with `:Pyenv local`.
+- **`:checkhealth pyenv`**, which reports the pyenv root and how it was found,
+  competing environment plugins, the active environment and the file that chose
+  it, and - for each running Python language server - the interpreter it is
+  really using versus the one that was resolved.
+- **A statusline component** for lualine, plus a plain string for everything
+  else, reading only cached state so it is safe on every redraw.
+- **No plugin dependencies.** The picker goes through `vim.ui.select`, so it
+  adopts whichever picker is already installed.
 
-[Unreleased]: https://github.com/yal212/pyenv.nvim/commits/main
+[Unreleased]: https://github.com/yal212/pyenv.nvim/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/yal212/pyenv.nvim/releases/tag/v1.0.0

@@ -63,15 +63,6 @@ picker you already have.
 </details>
 
 <details>
-<summary><b>rocks.nvim / luarocks</b></summary>
-
-```vim
-:Rocks install pyenv.nvim
-```
-
-</details>
-
-<details>
 <summary><b>mini.deps</b></summary>
 
 ```lua
